@@ -1,3 +1,41 @@
+<script setup lang="ts">
+import { useCollectionsStore } from '@/stores/collections';
+import { isNil, orderBy } from 'lodash';
+import { computed, ref, toRefs } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { useNavigation } from '../composables/use-navigation';
+import NavigationItem from './navigation-item.vue';
+
+const props = defineProps<{
+	currentCollection?: string;
+}>();
+
+const { t } = useI18n();
+const { currentCollection } = toRefs(props);
+const { activeGroups, showHidden } = useNavigation(currentCollection);
+
+const search = ref('');
+
+const collectionsStore = useCollectionsStore();
+
+const rootItems = computed(() => {
+	const shownCollections = showHidden.value ? collectionsStore.allCollections : collectionsStore.visibleCollections;
+	return orderBy(
+		shownCollections.filter((collection) => {
+			return isNil(collection?.meta?.group);
+		}),
+		['meta.sort', 'collection']
+	);
+});
+
+const dense = computed(() => collectionsStore.visibleCollections.length > 5);
+const showSearch = computed(() => collectionsStore.visibleCollections.length > 20);
+
+const hasHiddenCollections = computed(
+	() => collectionsStore.allCollections.length > collectionsStore.visibleCollections.length
+);
+</script>
+
 <template>
 	<div class="content-navigation-wrapper">
 		<div v-if="showSearch" class="search-input">
@@ -35,62 +73,6 @@
 		</v-list>
 	</div>
 </template>
-
-<script lang="ts">
-import { useI18n } from 'vue-i18n';
-import { defineComponent, computed, ref, toRefs } from 'vue';
-import { useNavigation } from '../composables/use-navigation';
-import { useCollectionsStore } from '@/stores/collections';
-import { orderBy, isNil } from 'lodash';
-import NavigationItem from './navigation-item.vue';
-
-export default defineComponent({
-	components: { NavigationItem },
-	props: {
-		currentCollection: {
-			type: String,
-			default: null,
-		},
-	},
-	setup(props) {
-		const { t } = useI18n();
-		const { currentCollection } = toRefs(props);
-		const { activeGroups, showHidden } = useNavigation(currentCollection);
-
-		const search = ref('');
-
-		const collectionsStore = useCollectionsStore();
-
-		const rootItems = computed(() => {
-			const shownCollections = showHidden.value ? collectionsStore.allCollections : collectionsStore.visibleCollections;
-			return orderBy(
-				shownCollections.filter((collection) => {
-					return isNil(collection?.meta?.group);
-				}),
-				['meta.sort', 'collection']
-			);
-		});
-
-		const dense = computed(() => collectionsStore.visibleCollections.length > 5);
-		const showSearch = computed(() => collectionsStore.visibleCollections.length > 20);
-
-		const hasHiddenCollections = computed(
-			() => collectionsStore.allCollections.length > collectionsStore.visibleCollections.length
-		);
-
-		return {
-			t,
-			activeGroups,
-			showHidden,
-			rootItems,
-			dense,
-			search,
-			showSearch,
-			hasHiddenCollections,
-		};
-	},
-});
-</script>
 
 <style lang="scss" scoped>
 .group-name {

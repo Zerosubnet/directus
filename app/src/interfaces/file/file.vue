@@ -1,3 +1,138 @@
+<script setup lang="ts">
+import api from '@/api';
+import { useRelationM2O } from '@/composables/use-relation-m2o';
+import { useRelationPermissionsM2O } from '@/composables/use-relation-permissions';
+import { RelationQuerySingle, useRelationSingle } from '@/composables/use-relation-single';
+import { addQueryToPath } from '@/utils/add-query-to-path';
+import { getAssetUrl } from '@/utils/get-asset-url';
+import { readableMimeType } from '@/utils/readable-mime-type';
+import { unexpectedError } from '@/utils/unexpected-error';
+import DrawerFiles from '@/views/private/components/drawer-files.vue';
+import DrawerItem from '@/views/private/components/drawer-item.vue';
+import { computed, ref, toRefs } from 'vue';
+import { useI18n } from 'vue-i18n';
+
+type FileInfo = {
+	id: string;
+	title: string;
+	type: string;
+};
+
+const props = defineProps<{
+	value: string | Record<string, any> | null;
+	disabled?: boolean;
+	folder?: string;
+	collection: string;
+	field: string;
+}>();
+
+const emit = defineEmits<{
+	input: [value: string | Record<string, any> | null];
+}>();
+
+const value = computed({
+	get: () => props.value,
+	set: (value) => {
+		emit('input', value);
+	},
+});
+
+const query = ref<RelationQuerySingle>({
+	fields: ['id', 'title', 'type', 'filename_download'],
+});
+
+const { collection, field } = toRefs(props);
+const { relationInfo } = useRelationM2O(collection, field);
+const { displayItem: file, loading, update, remove } = useRelationSingle(value, query, relationInfo);
+const { createAllowed, updateAllowed } = useRelationPermissionsM2O(relationInfo);
+
+const { t } = useI18n();
+
+const activeDialog = ref<'upload' | 'choose' | 'url' | null>(null);
+
+const fileExtension = computed(() => {
+	if (file.value === null) return null;
+	return readableMimeType(file.value.type, true);
+});
+
+const assetURL = computed(() => {
+	const id = typeof props.value === 'string' ? props.value : props.value?.id;
+	return '/assets/' + id;
+});
+
+const imageThumbnail = computed(() => {
+	if (file.value === null || props.value === null) return null;
+	if (file.value.type.includes('svg')) return assetURL.value;
+	if (file.value.type.includes('image') === false) return null;
+	return addQueryToPath(assetURL.value, { key: 'system-small-cover' });
+});
+
+const imageThumbnailError = ref<any>(null);
+
+const { url, isValidURL, loading: urlLoading, importFromURL } = useURLImport();
+
+const editDrawerActive = ref(false);
+
+const edits = computed(() => {
+	if (!props.value || typeof props.value !== 'object') return {};
+
+	return props.value;
+});
+
+function setSelection(selection: (string | number)[] | null) {
+	if (selection![0]) {
+		update(selection![0]);
+	} else {
+		remove();
+	}
+}
+
+function onUpload(fileInfo: FileInfo) {
+	file.value = fileInfo;
+	activeDialog.value = null;
+	update(fileInfo.id);
+}
+
+function useURLImport() {
+	const url = ref('');
+	const loading = ref(false);
+
+	const isValidURL = computed(() => {
+		try {
+			new URL(url.value);
+			return true;
+		} catch {
+			return false;
+		}
+	});
+
+	return { url, loading, isValidURL, importFromURL };
+
+	async function importFromURL() {
+		loading.value = true;
+
+		try {
+			const response = await api.post(`/files/import`, {
+				url: url.value,
+				data: {
+					folder: props.folder,
+				},
+			});
+
+			file.value = response.data.data;
+
+			activeDialog.value = null;
+			url.value = '';
+			update(file.value?.id);
+		} catch (err: any) {
+			unexpectedError(err);
+		} finally {
+			loading.value = false;
+		}
+	}
+}
+</script>
+
 <template>
 	<div class="file">
 		<v-menu attached :disabled="loading">
@@ -55,7 +190,7 @@
 					<v-divider v-if="!disabled" />
 				</template>
 				<template v-if="!disabled">
-					<v-list-item clickable @click="activeDialog = 'upload'">
+					<v-list-item v-if="createAllowed" clickable @click="activeDialog = 'upload'">
 						<v-list-item-icon><v-icon name="phonelink" /></v-list-item-icon>
 						<v-list-item-content>
 							{{ t(file ? 'replace_from_device' : 'upload_from_device') }}
@@ -69,7 +204,7 @@
 						</v-list-item-content>
 					</v-list-item>
 
-					<v-list-item clickable @click="activeDialog = 'url'">
+					<v-list-item v-if="createAllowed" clickable @click="activeDialog = 'url'">
 						<v-list-item-icon><v-icon name="link" /></v-list-item-icon>
 						<v-list-item-content>
 							{{ t(file ? 'replace_from_url' : 'import_from_url') }}
@@ -85,7 +220,7 @@
 			collection="directus_files"
 			:primary-key="file.id"
 			:edits="edits"
-			:disabled="disabled"
+			:disabled="disabled || !updateAllowed"
 			@input="update"
 		>
 			<template #actions>
@@ -111,11 +246,10 @@
 			</v-card>
 		</v-dialog>
 
-		<drawer-collection
+		<drawer-files
 			v-if="activeDialog === 'choose'"
-			collection="directus_files"
+			:folder="folder"
 			:active="activeDialog === 'choose'"
-			:filter="filterByFolder"
 			@update:active="activeDialog = null"
 			@input="setSelection"
 		/>
@@ -143,150 +277,6 @@
 		</v-dialog>
 	</div>
 </template>
-
-<script setup lang="ts">
-import { useI18n } from 'vue-i18n';
-import { ref, computed, toRefs } from 'vue';
-import DrawerCollection from '@/views/private/components/drawer-collection.vue';
-import api from '@/api';
-import { getAssetUrl } from '@/utils/get-asset-url';
-import { readableMimeType } from '@/utils/readable-mime-type';
-import { unexpectedError } from '@/utils/unexpected-error';
-import DrawerItem from '@/views/private/components/drawer-item.vue';
-import { addQueryToPath } from '@/utils/add-query-to-path';
-import { useRelationM2O } from '@/composables/use-relation-m2o';
-import { useRelationSingle, RelationQuerySingle } from '@/composables/use-relation-single';
-import { Filter } from '@directus/types';
-
-type FileInfo = {
-	id: string;
-	title: string;
-	type: string;
-};
-
-const props = withDefaults(
-	defineProps<{
-		value?: string | Record<string, any> | null;
-		disabled?: boolean;
-		folder?: string;
-		collection: string;
-		field: string;
-	}>(),
-	{
-		value: () => null,
-		disabled: false,
-		folder: undefined,
-	}
-);
-
-const emit = defineEmits(['input']);
-
-const value = computed({
-	get: () => props.value ?? null,
-	set: (value) => {
-		emit('input', value);
-	},
-});
-
-const query = ref<RelationQuerySingle>({
-	fields: ['id', 'title', 'type', 'filename_download'],
-});
-
-const { collection, field } = toRefs(props);
-const { relationInfo } = useRelationM2O(collection, field);
-const { displayItem: file, loading, update, remove } = useRelationSingle(value, query, relationInfo);
-
-const { t } = useI18n();
-
-const activeDialog = ref<'upload' | 'choose' | 'url' | null>(null);
-
-const filterByFolder = computed(() => {
-	if (!props.folder) return undefined;
-	return { folder: { id: { _eq: props.folder } } } as Filter;
-});
-
-const fileExtension = computed(() => {
-	if (file.value === null) return null;
-	return readableMimeType(file.value.type, true);
-});
-
-const assetURL = computed(() => {
-	const id = typeof props.value === 'string' ? props.value : props.value?.id;
-	return '/assets/' + id;
-});
-
-const imageThumbnail = computed(() => {
-	if (file.value === null || props.value === null) return null;
-	if (file.value.type.includes('svg')) return assetURL.value;
-	if (file.value.type.includes('image') === false) return null;
-	return addQueryToPath(assetURL.value, { key: 'system-small-cover' });
-});
-
-const imageThumbnailError = ref<any>(null);
-
-const { url, isValidURL, loading: urlLoading, importFromURL } = useURLImport();
-
-const editDrawerActive = ref(false);
-
-const edits = computed(() => {
-	if (!props.value || typeof props.value !== 'object') return {};
-
-	return props.value;
-});
-
-function setSelection(selection: number[]) {
-	if (selection[0]) {
-		update(selection[0]);
-	} else {
-		remove();
-	}
-}
-
-function onUpload(fileInfo: FileInfo) {
-	file.value = fileInfo;
-	activeDialog.value = null;
-	update(fileInfo.id);
-}
-
-function useURLImport() {
-	const url = ref('');
-	const loading = ref(false);
-
-	const isValidURL = computed(() => {
-		try {
-			new URL(url.value);
-			return true;
-		} catch {
-			return false;
-		}
-	});
-
-	return { url, loading, isValidURL, importFromURL };
-
-	async function importFromURL() {
-		loading.value = true;
-
-		try {
-			const response = await api.post(`/files/import`, {
-				url: url.value,
-				data: {
-					folder: props.folder,
-				},
-			});
-
-			file.value = response.data.data;
-
-			activeDialog.value = null;
-			url.value = '';
-			update(file.value?.id);
-		} catch (err: any) {
-			unexpectedError(err);
-		} finally {
-			loading.value = false;
-		}
-	}
-}
-</script>
 
 <style lang="scss" scoped>
 .preview {

@@ -1,3 +1,14 @@
+<script setup lang="ts">
+import { computed } from 'vue';
+import LatencyIndicator from './latency-indicator.vue';
+import { useServerStore } from '@/stores/server';
+
+const serverStore = useServerStore();
+
+const name = computed(() => serverStore.info?.project?.project_name);
+const descriptor = computed(() => serverStore.info?.project?.project_descriptor);
+</script>
+
 <template>
 	<div class="project-info">
 		<latency-indicator />
@@ -7,24 +18,6 @@
 		</div>
 	</div>
 </template>
-
-<script lang="ts">
-import { defineComponent, computed } from 'vue';
-import LatencyIndicator from './latency-indicator.vue';
-import { useServerStore } from '@/stores/server';
-
-export default defineComponent({
-	components: { LatencyIndicator },
-	setup() {
-		const serverStore = useServerStore();
-
-		const name = computed(() => serverStore.info?.project?.project_name);
-		const descriptor = computed(() => serverStore.info?.project?.project_descriptor);
-
-		return { name, descriptor };
-	},
-});
-</script>
 
 <style lang="scss" scoped>
 .project-info {

@@ -1,3 +1,42 @@
+<script setup lang="ts">
+import { useCollectionsStore } from '@/stores/collections';
+import { computed, inject, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
+
+const props = defineProps<{
+	value: string | null;
+	disabled?: boolean;
+	collectionField?: string;
+	collectionName?: string;
+}>();
+
+defineEmits<{
+	(e: 'input', value: string | null): void;
+}>();
+
+const { t } = useI18n();
+
+const collectionsStore = useCollectionsStore();
+
+const values = inject('values', ref<Record<string, any>>({}));
+
+const collection = computed(() => {
+	if (!props.collectionField) {
+		if (props.collectionName) return props.collectionName;
+		return null;
+	}
+
+	const collectionName = values.value[props.collectionField];
+
+	const collectionExists = !!collectionsStore.collections.find(
+		(collection) => collection.collection === collectionName
+	);
+
+	if (collectionExists === false) return null;
+	return collectionName;
+});
+</script>
+
 <template>
 	<div class="system-display-template">
 		<v-notice v-if="collection === null" type="info">
@@ -13,56 +52,3 @@
 		/>
 	</div>
 </template>
-
-<script lang="ts">
-import { useI18n } from 'vue-i18n';
-import { defineComponent, inject, ref, computed } from 'vue';
-import { useCollectionsStore } from '@/stores/collections';
-
-export default defineComponent({
-	props: {
-		disabled: {
-			type: Boolean,
-			default: false,
-		},
-		value: {
-			type: String,
-			default: null,
-		},
-		collectionField: {
-			type: String,
-			default: null,
-		},
-		collectionName: {
-			type: String,
-			default: null,
-		},
-	},
-	emits: ['input'],
-	setup(props) {
-		const { t } = useI18n();
-
-		const collectionsStore = useCollectionsStore();
-
-		const values = inject('values', ref<Record<string, any>>({}));
-
-		const collection = computed(() => {
-			if (!props.collectionField) {
-				if (props.collectionName) return props.collectionName;
-				return null;
-			}
-
-			const collectionName = values.value[props.collectionField];
-
-			const collectionExists = !!collectionsStore.collections.find(
-				(collection) => collection.collection === collectionName
-			);
-
-			if (collectionExists === false) return null;
-			return collectionName;
-		});
-
-		return { t, collection };
-	},
-});
-</script>

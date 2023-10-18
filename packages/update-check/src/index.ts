@@ -1,37 +1,78 @@
-import { URL } from 'node:url';
-import { gte } from 'semver';
-import { fetch } from 'undici';
+import type { Manifest } from '@npm/types';
+import boxen, { type Options as BoxenOptions } from 'boxen';
+import chalk from 'chalk';
+import got from 'got';
+import { gte, prerelease } from 'semver';
+import { getCache } from './cache.js';
 
-/**
- * Check if a given package version is the most up to date release of that package. Returns the
- * latest version string if package is not up to date, returns null if package is up to date.
- */
-export const isUpToDate = async (name: string, version: string): Promise<string | null> => {
-	const url = new URL(name, 'https://registry.npmjs.org');
+const cache = await getCache();
 
-	const response = await fetch(url, {
-		headers: {
-			accept: 'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*',
-		},
-	});
+export async function updateCheck(currentVersion: string) {
+	let packageManifest: Manifest | undefined;
 
-	if (!response.ok) {
-		throw new Error(`Couldn't find latest version for package "${name}": ${response.status} ${response.statusText}`);
+	try {
+		packageManifest = await got('https://registry.npmjs.org/directus', {
+			headers: { accept: 'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*' },
+			cache,
+			retry: {
+				limit: 0,
+			},
+			timeout: {
+				request: 8_000,
+			},
+		}).json<Manifest>();
+	} catch (error) {
+		// Any errors are intentionally ignored & update message simply not printed
+		return;
 	}
 
-	const packageInformation = (await response.json()) as { 'dist-tags': { [key: string]: string } };
-
-	const latest = packageInformation?.['dist-tags']?.['latest'];
-
-	if (!latest) {
-		throw new Error(`Couldn't find latest version for package "${name}"`);
+	if (!packageManifest) {
+		return;
 	}
 
-	const upToDate = gte(version, latest);
+	const latestVersion = packageManifest['dist-tags']['latest'];
 
-	if (upToDate === false) {
-		return latest;
+	if (!latestVersion || gte(currentVersion, latestVersion)) {
+		return;
 	}
 
-	return null;
-};
+	const allVersions = Object.keys(packageManifest.versions).filter((version) => !prerelease(version));
+	const indexOfCurrent = allVersions.indexOf(currentVersion);
+	const indexOfLatest = allVersions.indexOf(latestVersion);
+
+	const versionDifference =
+		indexOfCurrent !== -1 && indexOfLatest !== -1 ? Math.abs(indexOfLatest - indexOfCurrent) : null;
+
+	const message = [
+		chalk.bold(`Update available!`),
+		'',
+		chalk.bold(`${chalk.red(currentVersion)} → ${chalk.green(latestVersion)}`),
+		...(versionDifference
+			? [chalk.dim(`${versionDifference} ${versionDifference > 1 ? 'versions' : 'version'} behind`)]
+			: []),
+		'',
+		'More information:',
+		chalk.blue(`https://github.com/directus/directus/releases`),
+	];
+
+	let borderColor;
+
+	if (versionDifference && versionDifference > 5) {
+		borderColor = 'red';
+	} else if (versionDifference && versionDifference > 2) {
+		borderColor = 'yellow';
+	} else {
+		borderColor = 'magenta';
+	}
+
+	const boxenOptions: BoxenOptions = {
+		padding: 1,
+		margin: 1,
+		align: 'center',
+		borderColor,
+		borderStyle: 'round',
+	};
+
+	// eslint-disable-next-line no-console
+	console.warn(boxen(message.join('\n'), boxenOptions));
+}

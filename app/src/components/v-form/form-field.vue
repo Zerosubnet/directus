@@ -1,90 +1,19 @@
-<template>
-	<div :key="field.field" class="field" :class="[field.meta?.width || 'full', { invalid: validationError }]">
-		<v-menu v-if="field.hideLabel !== true" placement="bottom-start" show-arrow>
-			<template #activator="{ toggle, active }">
-				<form-field-label
-					:field="field"
-					:toggle="toggle"
-					:active="active"
-					:batch-mode="batchMode"
-					:batch-active="batchActive"
-					:edited="isEdited"
-					:has-error="!!validationError"
-					:badge="badge"
-					:raw-editor-enabled="rawEditorEnabled"
-					:raw-editor-active="rawEditorActive"
-					:loading="loading"
-					@toggle-batch="$emit('toggle-batch', $event)"
-					@toggle-raw="$emit('toggle-raw', $event)"
-				/>
-			</template>
-
-			<form-field-menu
-				:field="field"
-				:model-value="internalValue"
-				:initial-value="initialValue"
-				:restricted="isDisabled"
-				@update:model-value="emitValue($event)"
-				@unset="$emit('unset', $event)"
-				@edit-raw="showRaw = true"
-				@copy-raw="copyRaw"
-				@paste-raw="pasteRaw"
-			/>
-		</v-menu>
-		<div v-else-if="['full', 'fill'].includes(field.meta?.width) === false" class="label-spacer" />
-
-		<form-field-interface
-			:autofocus="autofocus"
-			:model-value="internalValue"
-			:field="field"
-			:loading="loading"
-			:batch-mode="batchMode"
-			:batch-active="batchActive"
-			:disabled="isDisabled"
-			:primary-key="primaryKey"
-			:raw-editor-enabled="rawEditorEnabled"
-			:raw-editor-active="rawEditorActive"
-			:direction="direction"
-			@update:model-value="emitValue($event)"
-			@set-field-value="$emit('setFieldValue', $event)"
-		/>
-
-		<form-field-raw-editor
-			:show-modal="showRaw"
-			:field="field"
-			:current-value="internalValue"
-			:disabled="isDisabled"
-			@cancel="showRaw = false"
-			@set-raw-value="onRawValueSubmit"
-		/>
-
-		<small v-if="field.meta && field.meta.note" v-md="field.meta.note" class="type-note" />
-
-		<small v-if="validationError" class="validation-error selectable">
-			<template v-if="field.meta?.validation_message">
-				{{ field.meta?.validation_message }}
-				<v-icon v-tooltip="validationMessage" small right name="help" />
-			</template>
-			<template v-else>{{ validationPrefix }}{{ validationMessage }}</template>
-		</small>
-	</div>
-</template>
-
 <script setup lang="ts">
-import { Field, ValidationError } from '@directus/types';
+import { useClipboard } from '@/composables/use-clipboard';
+import { formatFieldFunction } from '@/utils/format-field-function';
+import { ValidationError } from '@directus/types';
+import { parseJSON } from '@directus/utils';
 import { isEqual } from 'lodash';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import FormFieldInterface from './form-field-interface.vue';
 import FormFieldLabel from './form-field-label.vue';
 import FormFieldMenu from './form-field-menu.vue';
-import { formatFieldFunction } from '@/utils/format-field-function';
-import { useClipboard } from '@/composables/use-clipboard';
 import FormFieldRawEditor from './form-field-raw-editor.vue';
-import { parseJSON } from '@directus/utils';
+import type { FormField } from './types';
 
 interface Props {
-	field: Field;
+	field: FormField;
 	batchMode?: boolean;
 	batchActive?: boolean;
 	disabled?: boolean;
@@ -145,7 +74,7 @@ const validationPrefix = computed(() => {
 	if (!props.validationError) return null;
 
 	if (props.validationError.field.includes('(') && props.validationError.field.includes(')')) {
-		return formatFieldFunction(props.field.collection, props.validationError.field) + ': ';
+		return formatFieldFunction(props.field.collection!, props.validationError.field) + ': ';
 	}
 
 	return null;
@@ -221,6 +150,78 @@ function useComputedValues() {
 }
 </script>
 
+<template>
+	<div class="field" :class="[field.meta?.width || 'full', { invalid: validationError }]">
+		<v-menu v-if="field.hideLabel !== true" placement="bottom-start" show-arrow>
+			<template #activator="{ toggle, active }">
+				<form-field-label
+					:field="field"
+					:toggle="toggle"
+					:active="active"
+					:batch-mode="batchMode"
+					:batch-active="batchActive"
+					:edited="isEdited"
+					:has-error="!!validationError"
+					:badge="badge"
+					:raw-editor-enabled="rawEditorEnabled"
+					:raw-editor-active="rawEditorActive"
+					:loading="loading"
+					@toggle-batch="$emit('toggle-batch', $event)"
+					@toggle-raw="$emit('toggle-raw', $event)"
+				/>
+			</template>
+
+			<form-field-menu
+				:field="field"
+				:model-value="internalValue"
+				:initial-value="initialValue"
+				:restricted="isDisabled"
+				@update:model-value="emitValue($event)"
+				@unset="$emit('unset', $event)"
+				@edit-raw="showRaw = true"
+				@copy-raw="copyRaw"
+				@paste-raw="pasteRaw"
+			/>
+		</v-menu>
+		<div v-else-if="['full', 'fill'].includes(field.meta?.width ?? '') === false" class="label-spacer" />
+
+		<form-field-interface
+			:autofocus="autofocus"
+			:model-value="internalValue"
+			:field="field"
+			:loading="loading"
+			:batch-mode="batchMode"
+			:batch-active="batchActive"
+			:disabled="isDisabled"
+			:primary-key="primaryKey"
+			:raw-editor-enabled="rawEditorEnabled"
+			:raw-editor-active="rawEditorActive"
+			:direction="direction"
+			@update:model-value="emitValue($event)"
+			@set-field-value="$emit('setFieldValue', $event)"
+		/>
+
+		<form-field-raw-editor
+			:show-modal="showRaw"
+			:field="field"
+			:current-value="internalValue"
+			:disabled="isDisabled"
+			@cancel="showRaw = false"
+			@set-raw-value="onRawValueSubmit"
+		/>
+
+		<small v-if="field.meta && field.meta.note" v-md="field.meta.note" class="type-note" />
+
+		<small v-if="validationError" class="validation-error selectable">
+			<template v-if="field.meta?.validation_message">
+				{{ field.meta?.validation_message }}
+				<v-icon v-tooltip="validationMessage" small right name="help" />
+			</template>
+			<template v-else>{{ validationPrefix }}{{ validationMessage }}</template>
+		</small>
+	</div>
+</template>
+
 <style lang="scss" scoped>
 .field {
 	position: relative;
@@ -251,7 +252,8 @@ function useComputedValues() {
 }
 
 .validation-error {
-	display: block;
+	display: flex;
+	align-items: center;
 	margin-top: 4px;
 	color: var(--danger);
 	font-style: italic;

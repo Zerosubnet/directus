@@ -1,48 +1,48 @@
 {
 	"name": "@directus/composables",
-	"version": "9.25.2",
-	"type": "module",
-	"scripts": {
-		"build": "tsc --build",
-		"dev": "tsc --watch",
-		"test": "vitest --watch=false"
-	},
+	"version": "10.1.3",
 	"description": "Shared Vue composables for Directus use",
+	"homepage": "https://directus.io",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/directus/directus.git",
 		"directory": "packages/composables"
 	},
 	"funding": "https://github.com/directus/directus?sponsor=1",
-	"license": "GPL-3.0",
+	"license": "MIT",
 	"author": "Rijk van Zanten <rijkvanzanten@me.com>",
+	"sideEffects": false,
+	"type": "module",
 	"exports": {
 		".": "./dist/index.js",
 		"./package.json": "./package.json"
 	},
 	"main": "dist/index.js",
 	"files": [
-		"dist",
-		"!**/*.test.{js,d.ts}"
+		"dist"
 	],
-	"publishConfig": {
-		"access": "public"
-	},
-	"devDependencies": {
-		"@directus/tsconfig": "0.0.7",
-		"@directus/types": "workspace:*",
-		"@types/lodash-es": "4.17.7",
-		"@vitest/coverage-c8": "0.30.1",
-		"@vue/test-utils": "2.3.2",
-		"axios": "1.3.6",
-		"typescript": "5.0.4",
-		"vitest": "0.30.1"
+	"scripts": {
+		"build": "tsup src/index.ts --format=esm --dts",
+		"dev": "tsup src/index.ts --format=esm --dts --watch",
+		"test": "vitest --watch=false"
 	},
 	"dependencies": {
 		"@directus/constants": "workspace:*",
 		"@directus/utils": "workspace:*",
+		"axios": "1.4.0",
 		"lodash-es": "4.17.21",
 		"nanoid": "4.0.2",
-		"vue": "3.2.47"
+		"vue": "3.3.4"
+	},
+	"devDependencies": {
+		"@directus/extensions": "workspace:*",
+		"@directus/tsconfig": "workspace:*",
+		"@directus/types": "workspace:*",
+		"@types/lodash-es": "4.17.7",
+		"@vitest/coverage-c8": "0.31.1",
+		"@vue/test-utils": "2.3.2",
+		"tsup": "7.2.0",
+		"typescript": "5.2.2",
+		"vitest": "0.31.1"
 	}
 }

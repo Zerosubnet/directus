@@ -1,21 +1,4 @@
-<template>
-	<v-image
-		v-if="imageThumbnail && !imgError"
-		:src="imageThumbnail"
-		:class="{ 'is-svg': value && value.type?.includes('svg') }"
-		:alt="value?.title"
-		@error="imgError = true"
-	/>
-	<div v-else ref="previewEl" class="preview">
-		<span v-if="fileExtension" class="extension">
-			{{ fileExtension }}
-		</span>
-
-		<v-icon v-else name="folder_open" />
-	</div>
-</template>
-
-<script lang="ts" setup>
+<script setup lang="ts">
 import { readableMimeType } from '@/utils/readable-mime-type';
 import { computed, ref } from 'vue';
 
@@ -49,6 +32,23 @@ const imageThumbnail = computed(() => {
 	return `/assets/${props.value.id}?key=system-small-cover`;
 });
 </script>
+
+<template>
+	<v-image
+		v-if="imageThumbnail && !imgError"
+		:src="imageThumbnail"
+		:class="{ 'is-svg': value && value.type?.includes('svg') }"
+		:alt="value?.title"
+		@error="imgError = true"
+	/>
+	<div v-else ref="previewEl" class="preview">
+		<span v-if="fileExtension" class="extension">
+			{{ fileExtension }}
+		</span>
+
+		<v-icon v-else name="folder_open" />
+	</div>
+</template>
 
 <style lang="scss" scoped>
 img {

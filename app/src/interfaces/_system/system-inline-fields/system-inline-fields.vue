@@ -1,13 +1,4 @@
-<template>
-	<interface-list
-		:value="repeaterValue"
-		template="{{ name }} - {{ meta.interface }}"
-		:fields="repeaterFields"
-		@input="repeaterValue = $event"
-	/>
-</template>
-
-<script lang="ts" setup>
+<script setup lang="ts">
 import { FIELD_TYPES_SELECT } from '@/constants';
 import { translate } from '@/utils/translate-object-values';
 import formatTitle from '@directus/format-title';
@@ -80,7 +71,6 @@ const repeaterFields = computed(() => {
 					placeholder: t('field_key_placeholder'),
 				},
 			},
-			schema: null,
 		},
 		{
 			name: t('field_name'),
@@ -93,7 +83,6 @@ const repeaterFields = computed(() => {
 					placeholder: t('field_name_placeholder'),
 				},
 			},
-			schema: null,
 		},
 		{
 			name: t('type'),
@@ -106,7 +95,6 @@ const repeaterFields = computed(() => {
 					choices: translate(FIELD_TYPES_SELECT),
 				},
 			},
-			schema: null,
 		},
 		{
 			name: t('interface_label'),
@@ -119,7 +107,6 @@ const repeaterFields = computed(() => {
 					typeField: 'type',
 				},
 			},
-			schema: null,
 		},
 		{
 			name: t('note'),
@@ -132,7 +119,6 @@ const repeaterFields = computed(() => {
 					placeholder: t('interfaces.list.field_note_placeholder'),
 				},
 			},
-			schema: null,
 		},
 		{
 			name: t('field_width'),
@@ -154,7 +140,6 @@ const repeaterFields = computed(() => {
 					],
 				},
 			},
-			schema: null,
 		},
 		{
 			name: t('required'),
@@ -183,3 +168,12 @@ const repeaterFields = computed(() => {
 	];
 });
 </script>
+
+<template>
+	<interface-list
+		:value="repeaterValue"
+		template="{{ name }} - {{ meta.interface }}"
+		:fields="repeaterFields"
+		@input="repeaterValue = $event"
+	/>
+</template>

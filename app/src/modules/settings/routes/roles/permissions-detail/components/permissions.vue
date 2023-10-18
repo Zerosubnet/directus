@@ -1,3 +1,37 @@
+<script setup lang="ts">
+import { useSync } from '@directus/composables';
+import { Permission, Role } from '@directus/types';
+import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
+
+const props = defineProps<{
+	permission: Permission;
+	role?: Role;
+	appMinimal?: Partial<Permission>;
+}>();
+
+const emit = defineEmits(['update:permission']);
+
+const { t } = useI18n();
+
+const permissionSync = useSync(props, 'permission', emit);
+
+const fields = computed(() => [
+	{
+		field: 'permissions',
+		name: t('rule'),
+		type: 'json',
+		meta: {
+			interface: 'system-filter',
+			options: {
+				collectionName: permissionSync.value.collection,
+				rawFieldNames: true,
+			},
+		},
+	},
+]);
+</script>
+
 <template>
 	<div>
 		<v-notice type="info">
@@ -18,52 +52,6 @@
 		</div>
 	</div>
 </template>
-
-<script lang="ts">
-import { useI18n } from 'vue-i18n';
-import { defineComponent, PropType, computed } from 'vue';
-import { Permission, Role } from '@directus/types';
-import { useSync } from '@directus/composables';
-
-export default defineComponent({
-	props: {
-		permission: {
-			type: Object as PropType<Permission>,
-			required: true,
-		},
-		role: {
-			type: Object as PropType<Role>,
-			default: null,
-		},
-		appMinimal: {
-			type: Object as PropType<Partial<Permission>>,
-			default: undefined,
-		},
-	},
-	emits: ['update:permission'],
-	setup(props, { emit }) {
-		const { t } = useI18n();
-
-		const permissionSync = useSync(props, 'permission', emit);
-
-		const fields = computed(() => [
-			{
-				field: 'permissions',
-				name: t('rule'),
-				type: 'json',
-				meta: {
-					interface: 'system-filter',
-					options: {
-						collectionName: permissionSync.value.collection,
-					},
-				},
-			},
-		]);
-
-		return { t, fields, permissionSync };
-	},
-});
-</script>
 
 <style lang="scss" scoped>
 .v-notice {

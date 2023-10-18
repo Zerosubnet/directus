@@ -1,6 +1,97 @@
+<script setup lang="ts">
+import { useRevisions } from '@/composables/use-revisions';
+import { useExtensions } from '@/extensions';
+import type { FlowRaw } from '@directus/types';
+import { Action } from '@directus/constants';
+import { computed, ref, toRefs, unref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { getTriggers } from '../triggers';
+
+const { t } = useI18n();
+
+interface Props {
+	flow: FlowRaw;
+}
+
+const props = defineProps<Props>();
+
+const { flow } = toRefs(props);
+
+const { triggers } = getTriggers();
+const { operations } = useExtensions();
+
+const usedTrigger = computed(() => {
+	return triggers.find((trigger) => trigger.id === unref(flow).trigger);
+});
+
+const page = ref<number>(1);
+
+const { revisionsByDate, revisionsCount, loading, pagesCount, refresh } = useRevisions(
+	ref('directus_flows'),
+	computed(() => unref(flow).id),
+	{
+		action: Action.RUN,
+	}
+);
+
+watch(
+	() => page.value,
+	(newPage) => {
+		refresh(newPage);
+	}
+);
+
+const previewing = ref();
+
+const triggerData = computed(() => {
+	if (!unref(previewing)?.data) return { trigger: null, accountability: null, options: null };
+
+	const { data } = unref(previewing).data;
+
+	return {
+		trigger: data.$trigger,
+		accountability: data.$accountability,
+		options: props.flow.options,
+	};
+});
+
+const steps = computed(() => {
+	if (!unref(previewing)?.data?.steps) return [];
+	const { steps } = unref(previewing).data;
+
+	return steps.map(
+		({
+			operation,
+			status,
+			key,
+			options,
+		}: {
+			operation: string;
+			status: 'reject' | 'resolve' | 'unknown';
+			key: string;
+			options: Record<string, any>;
+		}) => {
+			const operationConfiguration = props.flow.operations.find((operationConfig) => operationConfig.id === operation);
+
+			const operationType = operations.value.find((operation) => operation.id === operationConfiguration?.type);
+
+			return {
+				id: operation,
+				name: operationConfiguration?.name ?? key,
+				data: unref(previewing).data?.data?.[key] ?? null,
+				options: options ?? null,
+				operationType: operationType?.name ?? operationConfiguration?.type ?? '--',
+				key,
+				status,
+			};
+		}
+	);
+});
+</script>
+
 <template>
 	<sidebar-detail :title="t('logs')" icon="fact_check" :badge="revisionsCount">
-		<v-progress-linear v-if="loading" indeterminate />
+		<v-progress-linear v-if="!revisionsByDate && loading" indeterminate />
 
 		<div v-else-if="revisionsCount === 0" class="empty">{{ t('no_logs') }}</div>
 
@@ -21,6 +112,8 @@
 				</div>
 			</div>
 		</v-detail>
+
+		<v-pagination v-if="pagesCount > 1" v-model="page" :length="pagesCount" :total-visible="3" />
 	</sidebar-detail>
 
 	<v-drawer
@@ -79,88 +172,6 @@
 		</div>
 	</v-drawer>
 </template>
-
-<script lang="ts" setup>
-import { useRevisions } from '@/composables/use-revisions';
-import { useExtensions } from '@/extensions';
-import type { FlowRaw } from '@directus/types';
-import { Action } from '@directus/constants';
-import { computed, ref, toRefs, unref } from 'vue';
-import { useI18n } from 'vue-i18n';
-import { getTriggers } from '../triggers';
-
-const { t } = useI18n();
-
-interface Props {
-	flow: FlowRaw;
-}
-
-const props = defineProps<Props>();
-
-const { flow } = toRefs(props);
-
-const { triggers } = getTriggers();
-const { operations } = useExtensions();
-
-const usedTrigger = computed(() => {
-	return triggers.find((trigger) => trigger.id === unref(flow).trigger);
-});
-
-const { revisionsByDate, revisionsCount, loading } = useRevisions(
-	ref('directus_flows'),
-	computed(() => unref(flow).id),
-	{
-		action: Action.RUN,
-	}
-);
-
-const previewing = ref();
-
-const triggerData = computed(() => {
-	if (!unref(previewing)?.data) return { trigger: null, accountability: null, options: null };
-
-	const { data } = unref(previewing).data;
-
-	return {
-		trigger: data.$trigger,
-		accountability: data.$accountability,
-		options: props.flow.options,
-	};
-});
-
-const steps = computed(() => {
-	if (!unref(previewing)?.data?.steps) return [];
-	const { steps } = unref(previewing).data;
-
-	return steps.map(
-		({
-			operation,
-			status,
-			key,
-			options,
-		}: {
-			operation: string;
-			status: 'reject' | 'resolve' | 'unknown';
-			key: string;
-			options: Record<string, any>;
-		}) => {
-			const operationConfiguration = props.flow.operations.find((operationConfig) => operationConfig.id === operation);
-
-			const operationType = operations.value.find((operation) => operation.id === operationConfiguration?.type);
-
-			return {
-				id: operation,
-				name: operationConfiguration?.name ?? key,
-				data: unref(previewing).data?.data?.[key] ?? null,
-				options: options ?? null,
-				operationType: operationType?.name ?? operationConfiguration?.type ?? '--',
-				key,
-				status,
-			};
-		}
-	);
-});
-</script>
 
 <style lang="scss" scoped>
 .v-progress-linear {
@@ -224,6 +235,7 @@ const steps = computed(() => {
 	padding: 20px;
 	margin-top: 20px;
 	white-space: pre-wrap;
+	overflow-wrap: break-word;
 }
 
 .steps {
@@ -295,5 +307,10 @@ const steps = computed(() => {
 	margin-left: 2px;
 	color: var(--foreground-subdued);
 	font-style: italic;
+}
+
+.v-pagination {
+	justify-content: center;
+	margin-top: 24px;
 }
 </style>

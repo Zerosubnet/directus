@@ -1,3 +1,17 @@
+<script setup lang="ts">
+import { ref } from 'vue';
+
+defineProps<{
+	showSidebarToggle?: boolean;
+}>();
+
+defineEmits<{
+	(e: 'toggle:sidebar'): void;
+}>();
+
+const active = ref(false);
+</script>
+
 <template>
 	<div class="actions" :class="{ active }">
 		<v-button class="expand" icon rounded secondary outlined @click="active = !active">
@@ -21,24 +35,6 @@
 		</div>
 	</div>
 </template>
-
-<script lang="ts">
-import { defineComponent, ref } from 'vue';
-
-export default defineComponent({
-	props: {
-		showSidebarToggle: {
-			type: Boolean,
-			default: false,
-		},
-	},
-	emits: ['toggle:sidebar'],
-	setup() {
-		const active = ref(false);
-		return { active };
-	},
-});
-</script>
 
 <style scoped>
 .actions {
@@ -84,7 +80,7 @@ export default defineComponent({
 
 @media (min-width: 960px) {
 	.actions .action-buttons .sidebar-toggle {
-		display: none;
+		display: none !important;
 	}
 }
 

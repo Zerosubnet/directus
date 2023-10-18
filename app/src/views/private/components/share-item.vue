@@ -1,3 +1,53 @@
+<script setup lang="ts">
+import { isAllowed } from '@/utils/is-allowed';
+import { Share } from '@directus/types';
+import { format } from 'date-fns';
+import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
+
+const props = defineProps<{
+	share: Share;
+}>();
+
+defineEmits<{
+	(e: 'copy'): void;
+	(e: 'edit'): void;
+	(e: 'invite'): void;
+	(e: 'delete'): void;
+}>();
+
+const { t } = useI18n();
+
+const editAllowed = computed(() => {
+	return isAllowed('directus_shares', 'update', props.share);
+});
+
+const deleteAllowed = computed(() => {
+	return isAllowed('directus_shares', 'delete', props.share);
+});
+
+const usesLeft = computed(() => {
+	if (props.share.max_uses === null) return null;
+	return props.share.max_uses - props.share.times_used;
+});
+
+const status = computed(() => {
+	if (props.share.date_end && new Date(props.share.date_end) < new Date()) {
+		return 'expired';
+	}
+
+	if (props.share.date_start && new Date(props.share.date_start) > new Date()) {
+		return 'upcoming';
+	}
+
+	return null;
+});
+
+const formattedTime = computed(() => {
+	return format(new Date(props.share.date_created), String(t('date-fns_date_short')));
+});
+</script>
+
 <template>
 	<div class="item">
 		<div class="item-header">
@@ -48,59 +98,6 @@
 		</div>
 	</div>
 </template>
-
-<script lang="ts">
-import { defineComponent, computed, ref } from 'vue';
-import { useI18n } from 'vue-i18n';
-import { format } from 'date-fns';
-import { isAllowed } from '@/utils/is-allowed';
-
-export default defineComponent({
-	props: {
-		share: {
-			type: Object,
-			required: true,
-		},
-	},
-	emits: ['copy', 'edit', 'invite', 'delete'],
-	setup(props) {
-		const { t, d } = useI18n();
-
-		const editAllowed = computed(() => {
-			return isAllowed('directus_shares', 'update', props.share);
-		});
-
-		const deleteAllowed = computed(() => {
-			return isAllowed('directus_shares', 'delete', props.share);
-		});
-
-		const usesLeft = computed(() => {
-			if (props.share.max_uses === null) return null;
-			return props.share.max_uses - props.share.times_used;
-		});
-
-		const status = computed(() => {
-			if (props.share.date_end && new Date(props.share.date_end) < new Date()) {
-				return 'expired';
-			}
-
-			if (props.share.date_start && new Date(props.share.date_start) > new Date()) {
-				return 'upcoming';
-			}
-
-			return null;
-		});
-
-		const formattedTime = computed(() => {
-			return format(new Date(props.share.date_created), String(t('date-fns_date_short')));
-		});
-
-		const confirmDelete = ref<string | null>(null);
-
-		return { editAllowed, deleteAllowed, usesLeft, status, t, d, formattedTime, confirmDelete };
-	},
-});
-</script>
 
 <style lang="scss" scoped>
 .item {

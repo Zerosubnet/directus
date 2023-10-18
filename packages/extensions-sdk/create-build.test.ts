@@ -1,11 +1,11 @@
-import { EXTENSION_LANGUAGES } from '@directus/constants';
+import { JAVASCRIPT_FILE_EXTS } from '@directus/constants';
+import { EXTENSION_LANGUAGES } from '@directus/extensions';
 import { execa } from 'execa';
 import fse from 'fs-extra';
 import { resolve } from 'node:path';
 import { afterAll, expect, test } from 'vitest';
 import { create } from './src/cli/index.js';
 import { languageToShort } from './src/cli/utils/languages.js';
-import { CONFIG_FILE_NAMES } from './src/cli/commands/helpers/load-config.js';
 
 const testPrefix = `temp-extension`;
 
@@ -20,10 +20,10 @@ afterAll(async () => {
 
 function getConfigFileContent(configFileName: string) {
 	switch (configFileName) {
+		case 'extension.config.js':
 		case 'extension.config.mjs':
 			return `export default { plugins: [] };`;
 		case 'extension.config.cjs':
-		case 'extension.config.js':
 			return `module.exports = { plugins: [] };`;
 		default:
 			return '';
@@ -33,7 +33,7 @@ function getConfigFileContent(configFileName: string) {
 // Test one extension from each of app/api/hybrid extensions, and each config file names
 test.each(
 	['interface', 'endpoint', 'operation'].map((extensionType, index) => {
-		return { extensionType, configFileName: CONFIG_FILE_NAMES[index] };
+		return { extensionType, configFileName: `extension.config.${JAVASCRIPT_FILE_EXTS[index]}` };
 	})
 )(
 	`create and build new $extensionType extension with $configFileName config file`,
@@ -69,5 +69,5 @@ test.each(
 		}
 	},
 	// Bump up timeout duration as the build process can take slightly longer to complete
-	20000
+	30_000
 );

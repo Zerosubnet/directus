@@ -1,25 +1,26 @@
-import request from 'supertest';
 import config, { getUrl } from '@common/config';
-import vendors from '@common/get-dbs-to-test';
-import { v4 as uuid } from 'uuid';
 import { CreateItem, ReadItem } from '@common/functions';
-import { CachedTestsSchema, TestsSchemaVendorValues } from '@query/filter';
-import * as common from '@common/index';
+import vendors from '@common/get-dbs-to-test';
+import { createWebSocketConn, createWebSocketGql, requestGraphQL } from '@common/transport';
+import type { PrimaryKeyType } from '@common/types';
+import { PRIMARY_KEY_TYPES, USER } from '@common/variables';
+import { CheckQueryFilters, type CachedTestsSchema, type TestsSchemaVendorValues } from '@query/filter';
+import { findIndex, without } from 'lodash-es';
+import request from 'supertest';
+import { v4 as uuid } from 'uuid';
+import { beforeAll, describe, expect, it, test } from 'vitest';
 import {
+	collectionCities,
 	collectionCountries,
 	collectionStates,
-	collectionCities,
-	Country,
-	State,
-	City,
 	getTestsSchema,
 	seedDBValues,
+	type City,
+	type Country,
+	type State,
 } from './o2m.seed';
-import { CheckQueryFilters } from '@query/filter';
-import { findIndex } from 'lodash';
-import { requestGraphQL } from '@common/index';
 
-function createCountry(pkType: common.PrimaryKeyType) {
+function createCountry(pkType: PrimaryKeyType) {
 	const item: Country = {
 		name: 'country-' + uuid(),
 	};
@@ -31,7 +32,7 @@ function createCountry(pkType: common.PrimaryKeyType) {
 	return item;
 }
 
-function createState(pkType: common.PrimaryKeyType) {
+function createState(pkType: PrimaryKeyType) {
 	const item: State = {
 		name: 'state-' + uuid(),
 	};
@@ -43,7 +44,7 @@ function createState(pkType: common.PrimaryKeyType) {
 	return item;
 }
 
-function createCity(pkType: common.PrimaryKeyType) {
+function createCity(pkType: PrimaryKeyType) {
 	const item: City = {
 		name: 'city-' + uuid(),
 	};
@@ -55,7 +56,7 @@ function createCity(pkType: common.PrimaryKeyType) {
 	return item;
 }
 
-const cachedSchema = common.PRIMARY_KEY_TYPES.reduce((acc, pkType) => {
+const cachedSchema = PRIMARY_KEY_TYPES.reduce((acc, pkType) => {
 	acc[pkType] = getTestsSchema(pkType);
 	return acc;
 }, {} as CachedTestsSchema);
@@ -73,7 +74,7 @@ describe('Seed Database Values', () => {
 	});
 });
 
-describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
+describe.each(PRIMARY_KEY_TYPES)('/items', (pkType) => {
 	const localCollectionCountries = `${collectionCountries}_${pkType}`;
 	const localCollectionStates = `${collectionStates}_${pkType}`;
 	const localCollectionCities = `${collectionCities}_${pkType}`;
@@ -95,9 +96,9 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 					// Action
 					const response = await request(getUrl(vendor))
 						.get(`/items/${localCollectionCountries}/${insertedCountry.id}`)
-						.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+						.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
-					const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+					const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 						query: {
 							[localCollectionCountries]: {
 								__args: {
@@ -146,16 +147,16 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 							.query({
 								filter: { id: { _eq: insertedCountry.id } },
 							})
-							.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+							.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
 						const response2 = await request(getUrl(vendor))
 							.get(`/items/${localCollectionCountries}`)
 							.query({
 								filter: { name: { _eq: insertedCountry.name } },
 							})
-							.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+							.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
-						const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+						const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 							query: {
 								[localCollectionCountries]: {
 									__args: {
@@ -170,7 +171,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 							},
 						});
 
-						const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+						const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 							query: {
 								[localCollectionCountries]: {
 									__args: {
@@ -226,16 +227,16 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 							.query({
 								filter: JSON.stringify({ states: { id: { _eq: insertedState.id } } }),
 							})
-							.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+							.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
 						const response2 = await request(getUrl(vendor))
 							.get(`/items/${localCollectionCountries}`)
 							.query({
 								filter: JSON.stringify({ states: { name: { _eq: insertedState.name } } }),
 							})
-							.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+							.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
-						const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+						const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 							query: {
 								[localCollectionCountries]: {
 									__args: {
@@ -248,7 +249,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 							},
 						});
 
-						const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+						const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 							query: {
 								[localCollectionCountries]: {
 									__args: {
@@ -330,7 +331,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									],
 								}),
 							})
-							.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+							.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
 						const responseTotal = await request(getUrl(vendor))
 							.get(`/items/${localCollectionCountries}`)
@@ -339,9 +340,9 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									name: { _eq: 'test_country_top' },
 								}),
 							})
-							.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+							.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
-						const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+						const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 							query: {
 								[localCollectionCountries]: {
 									__args: {
@@ -361,7 +362,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 							},
 						});
 
-						const gqlResponseTotal = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+						const gqlResponseTotal = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 							query: {
 								[localCollectionCountries]: {
 									__args: {
@@ -506,7 +507,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									],
 								}),
 							})
-							.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+							.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
 						const responseTotal = await request(getUrl(vendor))
 							.get(`/items/${localCollectionCountries}`)
@@ -515,9 +516,9 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									name: { _eq: 'test_country_nested' },
 								}),
 							})
-							.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+							.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
-						const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+						const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 							query: {
 								[localCollectionCountries]: {
 									__args: {
@@ -546,7 +547,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 							},
 						});
 
-						const gqlResponseTotal = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+						const gqlResponseTotal = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 							query: {
 								[localCollectionCountries]: {
 									__args: {
@@ -603,7 +604,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									sort: 'name',
 									filter: { name: { _starts_with: 'country-o2m-top-sort-' } },
 								})
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
 							const response2 = await request(getUrl(vendor))
 								.get(`/items/${localCollectionCountries}`)
@@ -611,9 +612,9 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									sort: '-name',
 									filter: { name: { _starts_with: 'country-o2m-top-sort-' } },
 								})
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
-							const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								query: {
 									[localCollectionCountries]: {
 										__args: {
@@ -625,7 +626,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 								},
 							});
 
-							const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								query: {
 									[localCollectionCountries]: {
 										__args: {
@@ -668,7 +669,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									filter: { name: { _starts_with: 'country-o2m-top-sort-' } },
 									limit,
 								})
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
 							const response2 = await request(getUrl(vendor))
 								.get(`/items/${localCollectionCountries}`)
@@ -677,9 +678,9 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									filter: { name: { _starts_with: 'country-o2m-top-sort-' } },
 									limit,
 								})
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
-							const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								query: {
 									[localCollectionCountries]: {
 										__args: {
@@ -693,7 +694,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 								},
 							});
 
-							const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								query: {
 									[localCollectionCountries]: {
 										__args: {
@@ -780,7 +781,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									sort: 'states.name',
 									filter: { name: { _starts_with: 'country-o2m-sort-' } },
 								})
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
 							const response2 = await request(getUrl(vendor))
 								.get(`/items/${localCollectionCountries}`)
@@ -788,9 +789,9 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									sort: '-states.name',
 									filter: { name: { _starts_with: 'country-o2m-sort-' } },
 								})
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
-							const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								query: {
 									[localCollectionCountries]: {
 										__args: {
@@ -802,7 +803,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 								},
 							});
 
-							const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								query: {
 									[localCollectionCountries]: {
 										__args: {
@@ -877,7 +878,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									limit,
 									fields: 'states.name',
 								})
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
 							const response2 = await request(getUrl(vendor))
 								.get(`/items/${localCollectionCountries}`)
@@ -887,9 +888,9 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									limit,
 									fields: 'states.name',
 								})
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
-							const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								query: {
 									[localCollectionCountries]: {
 										__args: {
@@ -905,7 +906,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 								},
 							});
 
-							const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								query: {
 									[localCollectionCountries]: {
 										__args: {
@@ -1042,7 +1043,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									sort: 'year(test_datetime)',
 									filter: { name: { _starts_with: 'country-o2m-top-sort-fn-' } },
 								})
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
 							const response2 = await request(getUrl(vendor))
 								.get(`/items/${localCollectionCountries}`)
@@ -1050,9 +1051,9 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									sort: '-year(test_datetime)',
 									filter: { name: { _starts_with: 'country-o2m-top-sort-fn-' } },
 								})
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
-							const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								query: {
 									[localCollectionCountries]: {
 										__args: {
@@ -1064,7 +1065,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 								},
 							});
 
-							const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								query: {
 									[localCollectionCountries]: {
 										__args: {
@@ -1108,7 +1109,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									limit,
 									fields: 'year(test_datetime)',
 								})
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
 							const response2 = await request(getUrl(vendor))
 								.get(`/items/${localCollectionCountries}`)
@@ -1118,9 +1119,9 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									limit,
 									fields: 'year(test_datetime)',
 								})
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
-							const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								query: {
 									[localCollectionCountries]: {
 										__args: {
@@ -1136,7 +1137,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 								},
 							});
 
-							const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								query: {
 									[localCollectionCountries]: {
 										__args: {
@@ -1230,7 +1231,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									sort: 'states.year(test_datetime)',
 									filter: { name: { _starts_with: 'country-o2m-sort-fn-' } },
 								})
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
 							const response2 = await request(getUrl(vendor))
 								.get(`/items/${localCollectionCountries}`)
@@ -1238,9 +1239,9 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									sort: '-states.year(test_datetime)',
 									filter: { name: { _starts_with: 'country-o2m-sort-fn-' } },
 								})
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
-							const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								query: {
 									[localCollectionCountries]: {
 										__args: {
@@ -1252,7 +1253,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 								},
 							});
 
-							const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								query: {
 									[localCollectionCountries]: {
 										__args: {
@@ -1327,7 +1328,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									limit,
 									fields: 'states.year(test_datetime)',
 								})
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
 							const response2 = await request(getUrl(vendor))
 								.get(`/items/${localCollectionCountries}`)
@@ -1337,9 +1338,9 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									limit,
 									fields: 'states.year(test_datetime)',
 								})
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
-							const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								query: {
 									[localCollectionCountries]: {
 										__args: {
@@ -1357,7 +1358,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 								},
 							});
 
-							const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse2 = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								query: {
 									[localCollectionCountries]: {
 										__args: {
@@ -1468,7 +1469,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 				{
 					method: 'get',
 					path: `/items/${localCollectionCountries}`,
-					token: common.USER.ADMIN.TOKEN,
+					token: USER.ADMIN.TOKEN,
 				},
 				localCollectionCountries,
 				cachedSchema[pkType][localCollectionCountries],
@@ -1479,7 +1480,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 				{
 					method: 'get',
 					path: `/items/${localCollectionStates}`,
-					token: common.USER.ADMIN.TOKEN,
+					token: USER.ADMIN.TOKEN,
 				},
 				localCollectionStates,
 				cachedSchema[pkType][localCollectionStates],
@@ -1490,7 +1491,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 				{
 					method: 'get',
 					path: `/items/${localCollectionCities}`,
-					token: common.USER.ADMIN.TOKEN,
+					token: USER.ADMIN.TOKEN,
 				},
 				localCollectionCities,
 				cachedSchema[pkType][localCollectionCities],
@@ -1542,7 +1543,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 							],
 						}),
 					})
-					.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+					.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
 				const responseM2o = await request(getUrl(vendor))
 					.get(`/items/${localCollectionStates}`)
@@ -1562,9 +1563,9 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 							],
 						}),
 					})
-					.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+					.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
-				const gqlResponseO2m = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+				const gqlResponseO2m = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 					query: {
 						[localCollectionCountries]: {
 							__args: {
@@ -1588,7 +1589,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 					},
 				});
 
-				const gqlResponseM2o = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+				const gqlResponseM2o = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 					query: {
 						[localCollectionStates]: {
 							__args: {
@@ -1658,9 +1659,9 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 							},
 							fields: 'count(states)',
 						})
-						.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+						.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
-					const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+					const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 						query: {
 							[localCollectionCountries]: {
 								__args: {
@@ -1723,9 +1724,9 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 								},
 							}),
 						})
-						.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+						.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
-					const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+					const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 						query: {
 							[localCollectionCountries]: {
 								__args: {
@@ -1803,9 +1804,9 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 								},
 							}),
 						})
-						.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+						.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
-					const gqlResponseAsc = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+					const gqlResponseAsc = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 						query: {
 							[localCollectionCountries]: {
 								__args: {
@@ -1841,9 +1842,9 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 								},
 							}),
 						})
-						.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+						.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
-					const gqlResponseDesc = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+					const gqlResponseDesc = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 						query: {
 							[localCollectionCountries]: {
 								__args: {
@@ -1915,7 +1916,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 							}
 
 							// Setup
-							const countNested = Number(config.envs[vendor].MAX_BATCH_MUTATION) - 1;
+							const countNested = Number(config.envs[vendor]['MAX_BATCH_MUTATION']) - 1;
 							const country: any = createCountry(pkType);
 							const country2: any = createCountry(pkType);
 
@@ -1927,15 +1928,58 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 								.fill(0)
 								.map(() => createState(pkType));
 
+							const ws = createWebSocketConn(getUrl(vendor), {
+								auth: { access_token: USER.ADMIN.TOKEN },
+							});
+
+							await ws.subscribe({ collection: localCollectionCountries, uid: localCollectionCountries });
+							await ws.subscribe({ collection: localCollectionStates, uid: localCollectionStates });
+
+							const wsGql = createWebSocketGql(getUrl(vendor), {
+								auth: { access_token: USER.ADMIN.TOKEN },
+							});
+
+							const subscriptionKeyCountries = await wsGql.subscribe({
+								collection: localCollectionCountries,
+								jsonQuery: {
+									event: true,
+									data: {
+										id: true,
+										name: true,
+									},
+								},
+								uid: localCollectionCountries,
+							});
+
+							const subscriptionKeyStates = await wsGql.subscribe({
+								collection: localCollectionStates,
+								jsonQuery: {
+									event: true,
+									data: {
+										id: true,
+										name: true,
+										country_id: {
+											id: true,
+										},
+									},
+								},
+								uid: localCollectionStates,
+							});
+
 							// Action
 							const response = await request(getUrl(vendor))
 								.post(`/items/${localCollectionCountries}`)
 								.send(country)
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
+
+							const wsMessagesCountries = await ws.getMessages(1, { uid: localCollectionCountries });
+							const wsMessagesStates = await ws.getMessages(1, { uid: localCollectionStates });
+							const wsGqlMessagesCountries = await wsGql.getMessages(1, { uid: localCollectionCountries });
+							const wsGqlMessagesStates = await wsGql.getMessages(1, { uid: localCollectionStates });
 
 							const mutationKey = `create_${localCollectionCountries}_item`;
 
-							const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								mutation: {
 									[mutationKey]: {
 										__args: {
@@ -1949,12 +1993,85 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 								},
 							});
 
+							const wsMessagesGqlCountries = await ws.getMessages(1, { uid: localCollectionCountries });
+							const wsMessagesGqlStates = await ws.getMessages(1, { uid: localCollectionStates });
+							ws.conn.close();
+							const wsGqlMessagesGqlCountries = await wsGql.getMessages(1, { uid: localCollectionCountries });
+							const wsGqlMessagesGqlStates = await wsGql.getMessages(1, { uid: localCollectionStates });
+							wsGql.client.dispose();
+
 							// Assert
 							expect(response.statusCode).toBe(200);
 							expect(response.body.data.states.length).toBe(countNested);
 
 							expect(gqlResponse.statusCode).toBe(200);
 							expect(gqlResponse.body.data[mutationKey].states.length).toEqual(countNested);
+
+							for (const { messagesCountries, messagesStates } of [
+								{ messagesCountries: wsMessagesCountries, messagesStates: wsMessagesStates },
+								{ messagesCountries: wsMessagesGqlCountries, messagesStates: wsMessagesGqlStates },
+							]) {
+								expect(messagesCountries?.length).toBe(1);
+								expect(messagesStates?.length).toBe(1);
+
+								expect(messagesCountries![0]).toMatchObject({
+									type: 'subscription',
+									event: 'create',
+									data: [
+										{
+											id: expect.anything(),
+											name: expect.any(String),
+										},
+									],
+								});
+
+								expect(messagesStates![0]).toMatchObject({
+									type: 'subscription',
+									event: 'create',
+									data: [
+										{
+											id: expect.anything(),
+											name: expect.any(String),
+											country_id: expect.anything(),
+										},
+									],
+								});
+							}
+
+							for (const { messagesCountries, messagesStates } of [
+								{ messagesCountries: wsGqlMessagesCountries, messagesStates: wsGqlMessagesStates },
+								{ messagesCountries: wsGqlMessagesGqlCountries, messagesStates: wsGqlMessagesGqlStates },
+							]) {
+								expect(messagesCountries?.length).toBe(1);
+								expect(messagesStates?.length).toBe(1);
+
+								expect(messagesCountries![0]).toEqual({
+									data: {
+										[subscriptionKeyCountries]: {
+											event: 'create',
+											data: {
+												id: expect.anything(),
+												name: expect.any(String),
+											},
+										},
+									},
+								});
+
+								expect(messagesStates![0]).toEqual({
+									data: {
+										[subscriptionKeyStates]: {
+											event: 'create',
+											data: {
+												id: expect.anything(),
+												name: expect.any(String),
+												country_id: {
+													id: expect.anything(),
+												},
+											},
+										},
+									},
+								});
+							}
 						},
 						120000
 					);
@@ -1971,7 +2088,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 							}
 
 							// Setup
-							const countNested = Number(config.envs[vendor].MAX_BATCH_MUTATION);
+							const countNested = Number(config.envs[vendor]['MAX_BATCH_MUTATION']);
 							const country: any = createCountry(pkType);
 							const country2: any = createCountry(pkType);
 
@@ -1983,15 +2100,53 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 								.fill(0)
 								.map(() => createState(pkType));
 
+							const ws = createWebSocketConn(getUrl(vendor), {
+								auth: { access_token: USER.ADMIN.TOKEN },
+							});
+
+							await ws.subscribe({ collection: localCollectionCountries, uid: localCollectionCountries });
+							await ws.subscribe({ collection: localCollectionStates, uid: localCollectionStates });
+
+							const wsGql = createWebSocketGql(getUrl(vendor), {
+								auth: { access_token: USER.ADMIN.TOKEN },
+							});
+
+							await wsGql.subscribe({
+								collection: localCollectionCountries,
+								jsonQuery: {
+									event: true,
+									data: {
+										id: true,
+										name: true,
+									},
+								},
+								uid: localCollectionCountries,
+							});
+
+							await wsGql.subscribe({
+								collection: localCollectionStates,
+								jsonQuery: {
+									event: true,
+									data: {
+										id: true,
+										name: true,
+										country_id: {
+											id: true,
+										},
+									},
+								},
+								uid: localCollectionStates,
+							});
+
 							// Action
 							const response = await request(getUrl(vendor))
 								.post(`/items/${localCollectionCountries}`)
 								.send(country)
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
 							const mutationKey = `create_${localCollectionCountries}_item`;
 
-							const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								mutation: {
 									[mutationKey]: {
 										__args: {
@@ -2005,20 +2160,28 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 								},
 							});
 
+							ws.conn.close();
+							wsGql.client.dispose();
+
 							// Assert
 							expect(response.statusCode).toBe(400);
 							expect(response.body.errors).toBeDefined();
 
 							expect(response.body.errors[0].message).toBe(
-								`Exceeded max batch mutation limit of ${config.envs[vendor].MAX_BATCH_MUTATION}.`
+								`Invalid payload. Exceeded max batch mutation limit of ${config.envs[vendor]['MAX_BATCH_MUTATION']}.`
 							);
 
 							expect(gqlResponse.statusCode).toBe(200);
 							expect(gqlResponse.body.errors).toBeDefined();
 
 							expect(gqlResponse.body.errors[0].message).toBe(
-								`Exceeded max batch mutation limit of ${config.envs[vendor].MAX_BATCH_MUTATION}.`
+								`Invalid payload. Exceeded max batch mutation limit of ${config.envs[vendor]['MAX_BATCH_MUTATION']}.`
 							);
+
+							expect(ws.getMessageCount(localCollectionCountries)).toBe(1);
+							expect(ws.getMessageCount(localCollectionStates)).toBe(1);
+							expect(wsGql.getMessageCount(localCollectionCountries)).toBe(0);
+							expect(wsGql.getMessageCount(localCollectionStates)).toBe(0);
 						},
 						120000
 					);
@@ -2031,7 +2194,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 						'%s',
 						async (vendor) => {
 							// Setup
-							const count = Number(config.envs[vendor].MAX_BATCH_MUTATION) / 10;
+							const count = Number(config.envs[vendor]['MAX_BATCH_MUTATION']) / 10;
 							const countNested = 9;
 							const countries: any[] = [];
 							const countries2: any[] = [];
@@ -2050,15 +2213,58 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									.map(() => createState(pkType));
 							}
 
+							const ws = createWebSocketConn(getUrl(vendor), {
+								auth: { access_token: USER.ADMIN.TOKEN },
+							});
+
+							await ws.subscribe({ collection: localCollectionCountries, uid: localCollectionCountries });
+							await ws.subscribe({ collection: localCollectionStates, uid: localCollectionStates });
+
+							const wsGql = createWebSocketGql(getUrl(vendor), {
+								auth: { access_token: USER.ADMIN.TOKEN },
+							});
+
+							const subscriptionKeyCountries = await wsGql.subscribe({
+								collection: localCollectionCountries,
+								jsonQuery: {
+									event: true,
+									data: {
+										id: true,
+										name: true,
+									},
+								},
+								uid: localCollectionCountries,
+							});
+
+							const subscriptionKeyStates = await wsGql.subscribe({
+								collection: localCollectionStates,
+								jsonQuery: {
+									event: true,
+									data: {
+										id: true,
+										name: true,
+										country_id: {
+											id: true,
+										},
+									},
+								},
+								uid: localCollectionStates,
+							});
+
 							// Action
 							const response = await request(getUrl(vendor))
 								.post(`/items/${localCollectionCountries}`)
 								.send(countries)
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
+
+							const wsMessagesCountries = await ws.getMessages(count, { uid: localCollectionCountries });
+							const wsMessagesStates = await ws.getMessages(count, { uid: localCollectionStates });
+							const wsGqlMessagesCountries = await wsGql.getMessages(count, { uid: localCollectionCountries });
+							const wsGqlMessagesStates = await wsGql.getMessages(count, { uid: localCollectionStates });
 
 							const mutationKey = `create_${localCollectionCountries}_items`;
 
-							const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								mutation: {
 									[mutationKey]: {
 										__args: {
@@ -2069,12 +2275,89 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 								},
 							});
 
+							const wsMessagesGqlCountries = await ws.getMessages(count, { uid: localCollectionCountries });
+							const wsMessagesGqlStates = await ws.getMessages(count, { uid: localCollectionStates });
+							ws.conn.close();
+							const wsGqlMessagesGqlCountries = await wsGql.getMessages(count, { uid: localCollectionCountries });
+							const wsGqlMessagesGqlStates = await wsGql.getMessages(count, { uid: localCollectionStates });
+							wsGql.client.dispose();
+
 							// Assert
 							expect(response.statusCode).toBe(200);
 							expect(response.body.data.length).toBe(count);
 
 							expect(gqlResponse.statusCode).toBe(200);
 							expect(gqlResponse.body.data[mutationKey].length).toEqual(count);
+
+							for (const { messagesCountries, messagesStates } of [
+								{ messagesCountries: wsMessagesCountries, messagesStates: wsMessagesStates },
+								{ messagesCountries: wsMessagesGqlCountries, messagesStates: wsMessagesGqlStates },
+							]) {
+								expect(messagesCountries?.length).toBe(count);
+								expect(messagesStates?.length).toBe(count);
+
+								for (let i = 0; i < count; i++) {
+									expect(messagesCountries![i]).toMatchObject({
+										type: 'subscription',
+										event: 'create',
+										data: [
+											{
+												id: expect.anything(),
+												name: expect.any(String),
+											},
+										],
+									});
+
+									expect(messagesStates![i]).toMatchObject({
+										type: 'subscription',
+										event: 'create',
+										data: [
+											{
+												id: expect.anything(),
+												name: expect.any(String),
+												country_id: expect.anything(),
+											},
+										],
+									});
+								}
+							}
+
+							for (const { messagesCountries, messagesStates } of [
+								{ messagesCountries: wsGqlMessagesCountries, messagesStates: wsGqlMessagesStates },
+								{ messagesCountries: wsGqlMessagesGqlCountries, messagesStates: wsGqlMessagesGqlStates },
+							]) {
+								expect(messagesCountries?.length).toBe(count);
+								expect(messagesStates?.length).toBe(count);
+
+								for (let i = 0; i < count; i++) {
+									expect(messagesCountries![i]).toEqual({
+										data: {
+											[subscriptionKeyCountries]: {
+												event: 'create',
+												data: {
+													id: expect.anything(),
+													name: expect.any(String),
+												},
+											},
+										},
+									});
+
+									expect(messagesStates![i]).toEqual({
+										data: {
+											[subscriptionKeyStates]: {
+												event: 'create',
+												data: {
+													id: expect.anything(),
+													name: expect.any(String),
+													country_id: {
+														id: expect.anything(),
+													},
+												},
+											},
+										},
+									});
+								}
+							}
 						},
 						120000
 					);
@@ -2091,7 +2374,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 							}
 
 							// Setup
-							const count = Number(config.envs[vendor].MAX_BATCH_MUTATION) / 10;
+							const count = Number(config.envs[vendor]['MAX_BATCH_MUTATION']) / 10;
 							const countNested = 10;
 							const countries: any[] = [];
 							const countries2: any[] = [];
@@ -2110,15 +2393,53 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									.map(() => createState(pkType));
 							}
 
+							const ws = createWebSocketConn(getUrl(vendor), {
+								auth: { access_token: USER.ADMIN.TOKEN },
+							});
+
+							await ws.subscribe({ collection: localCollectionCountries, uid: localCollectionCountries });
+							await ws.subscribe({ collection: localCollectionStates, uid: localCollectionStates });
+
+							const wsGql = createWebSocketGql(getUrl(vendor), {
+								auth: { access_token: USER.ADMIN.TOKEN },
+							});
+
+							await wsGql.subscribe({
+								collection: localCollectionCountries,
+								jsonQuery: {
+									event: true,
+									data: {
+										id: true,
+										name: true,
+									},
+								},
+								uid: localCollectionCountries,
+							});
+
+							await wsGql.subscribe({
+								collection: localCollectionStates,
+								jsonQuery: {
+									event: true,
+									data: {
+										id: true,
+										name: true,
+										country_id: {
+											id: true,
+										},
+									},
+								},
+								uid: localCollectionStates,
+							});
+
 							// Action
 							const response = await request(getUrl(vendor))
 								.post(`/items/${localCollectionCountries}`)
 								.send(countries)
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
 							const mutationKey = `create_${localCollectionCountries}_items`;
 
-							const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								mutation: {
 									[mutationKey]: {
 										__args: {
@@ -2129,20 +2450,28 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 								},
 							});
 
+							ws.conn.close();
+							wsGql.client.dispose();
+
 							// Assert
 							expect(response.statusCode).toBe(400);
 							expect(response.body.errors).toBeDefined();
 
 							expect(response.body.errors[0].message).toBe(
-								`Exceeded max batch mutation limit of ${config.envs[vendor].MAX_BATCH_MUTATION}.`
+								`Invalid payload. Exceeded max batch mutation limit of ${config.envs[vendor]['MAX_BATCH_MUTATION']}.`
 							);
 
 							expect(gqlResponse.statusCode).toBe(200);
 							expect(gqlResponse.body.errors).toBeDefined();
 
 							expect(gqlResponse.body.errors[0].message).toBe(
-								`Exceeded max batch mutation limit of ${config.envs[vendor].MAX_BATCH_MUTATION}.`
+								`Invalid payload. Exceeded max batch mutation limit of ${config.envs[vendor]['MAX_BATCH_MUTATION']}.`
 							);
+
+							expect(ws.getMessageCount(localCollectionCountries)).toBe(1);
+							expect(ws.getMessageCount(localCollectionStates)).toBe(1);
+							expect(wsGql.getMessageCount(localCollectionCountries)).toBe(0);
+							expect(wsGql.getMessageCount(localCollectionStates)).toBe(0);
 						},
 						120000
 					);
@@ -2155,7 +2484,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 						'%s',
 						async (vendor) => {
 							// Setup
-							const count = Number(config.envs[vendor].MAX_BATCH_MUTATION) / 10;
+							const count = Number(config.envs[vendor]['MAX_BATCH_MUTATION']) / 10;
 							const countCreate = 4;
 							const countUpdate = 3;
 							const countDelete = 2;
@@ -2203,17 +2532,23 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									create: Array(countCreate)
 										.fill(0)
 										.map(() => createState(pkType)),
-									update: states.slice(0, countUpdate),
+									update: states.slice(0, countUpdate).map((state: State) => {
+										state.name = 'updated';
+										return state;
+									}),
 									delete: states.slice(-countDelete).map((state: State) => state.id),
 								};
 							}
 
 							for (const country of countries2) {
 								country.states = [
-									...country.states,
 									...Array(countCreate)
 										.fill(0)
 										.map(() => createState(pkType)),
+									...country.states.map((state: State) => {
+										state.name = 'updated';
+										return state;
+									}),
 								];
 							}
 
@@ -2221,11 +2556,11 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 							const response = await request(getUrl(vendor))
 								.patch(`/items/${localCollectionCountries}`)
 								.send(countries)
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
 							const mutationKey = `update_${localCollectionCountries}_batch`;
 
-							const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								mutation: {
 									[mutationKey]: {
 										__args: {
@@ -2258,7 +2593,7 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 							}
 
 							// Setup
-							const count = Number(config.envs[vendor].MAX_BATCH_MUTATION) / 10;
+							const count = Number(config.envs[vendor]['MAX_BATCH_MUTATION']) / 10;
 							const countCreate = 4;
 							const countUpdate = 3;
 							const countDelete = 3;
@@ -2306,17 +2641,23 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 									create: Array(countCreate)
 										.fill(0)
 										.map(() => createState(pkType)),
-									update: states.slice(0, countUpdate),
+									update: states.slice(0, countUpdate).map((state: State) => {
+										state.name = 'updated';
+										return state;
+									}),
 									delete: states.slice(-countDelete).map((state: State) => state.id),
 								};
 							}
 
 							for (const country of countries2) {
 								country.states = [
-									...country.states,
 									...Array(countCreate)
 										.fill(0)
 										.map(() => createState(pkType)),
+									...country.states.map((state: State) => {
+										state.name = 'updated';
+										return state;
+									}),
 								];
 							}
 
@@ -2324,11 +2665,11 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 							const response = await request(getUrl(vendor))
 								.patch(`/items/${localCollectionCountries}`)
 								.send(countries)
-								.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`);
+								.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
 
 							const mutationKey = `update_${localCollectionCountries}_batch`;
 
-							const gqlResponse = await requestGraphQL(getUrl(vendor), false, common.USER.ADMIN.TOKEN, {
+							const gqlResponse = await requestGraphQL(getUrl(vendor), false, USER.ADMIN.TOKEN, {
 								mutation: {
 									[mutationKey]: {
 										__args: {
@@ -2344,18 +2685,205 @@ describe.each(common.PRIMARY_KEY_TYPES)('/items', (pkType) => {
 							expect(response.body.errors).toBeDefined();
 
 							expect(response.body.errors[0].message).toBe(
-								`Exceeded max batch mutation limit of ${config.envs[vendor].MAX_BATCH_MUTATION}.`
+								`Invalid payload. Exceeded max batch mutation limit of ${config.envs[vendor]['MAX_BATCH_MUTATION']}.`
 							);
 
 							expect(gqlResponse.statusCode).toBe(200);
 							expect(gqlResponse.body.errors).toBeDefined();
 
 							expect(gqlResponse.body.errors[0].message).toBe(
-								`Exceeded max batch mutation limit of ${config.envs[vendor].MAX_BATCH_MUTATION}.`
+								`Invalid payload. Exceeded max batch mutation limit of ${config.envs[vendor]['MAX_BATCH_MUTATION']}.`
 							);
 						},
 						120000
 					);
+				});
+			});
+		});
+
+		describe('Meta Service Tests', () => {
+			describe('retrieves filter count correctly', () => {
+				it.each(vendors)('%s', async (vendor) => {
+					// Setup
+					const name = 'test-meta-service-count';
+					const country = createCountry(pkType);
+					const country2 = createCountry(pkType);
+					const states = [];
+					const states2 = [];
+
+					country.name = name;
+					country2.name = name;
+
+					for (let count = 0; count < 2; count++) {
+						const state = createState(pkType);
+						const state2 = createState(pkType);
+						state.name = name;
+						state2.name = name;
+						states.push(state);
+						states2.push(state2);
+					}
+
+					await CreateItem(vendor, {
+						collection: localCollectionCountries,
+						item: [
+							{
+								...country,
+								states: {
+									create: states,
+									update: [],
+									delete: [],
+								},
+							},
+							{
+								...country2,
+								states: {
+									create: states2,
+									update: [],
+									delete: [],
+								},
+							},
+						],
+					});
+
+					// Action
+					const response = await request(getUrl(vendor))
+						.get(`/items/${localCollectionCountries}`)
+						.query({
+							filter: JSON.stringify({
+								name: { _eq: name },
+								states: {
+									name: {
+										_eq: name,
+									},
+								},
+							}),
+							meta: '*',
+						})
+						.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
+
+					// Assert
+					expect(response.statusCode).toBe(200);
+					expect(response.body.meta.filter_count).toBe(2);
+					expect(response.body.data.length).toBe(2);
+
+					for (const item of response.body.data) {
+						expect(item.states.length).toBe(2);
+					}
+				});
+			});
+		});
+
+		test('Auto Increment Tests', (ctx) => {
+			if (pkType !== 'integer') ctx.skip();
+
+			describe('updates the auto increment value correctly', () => {
+				it.each(without(vendors, 'cockroachdb', 'mssql', 'oracle'))('%s', async (vendor) => {
+					// Setup
+					const name = 'test-auto-increment-o2m';
+					const largeIdCountry = 105555;
+					const largeIdState = 106666;
+					const largeIdCity = 107777;
+					const country = createCountry(pkType);
+					const country2 = createCountry(pkType);
+					const states: State[] = [];
+					const states2: State[] = [];
+					const cities: City[] = [];
+					const cities2: City[] = [];
+
+					country.id = largeIdCountry;
+					country.name = name;
+					country2.name = name;
+
+					for (let count = 0; count < 2; count++) {
+						const state = createState(pkType);
+						const state2 = createState(pkType);
+						const city = createCity(pkType);
+						const city2 = createCity(pkType);
+
+						if (count === 0) {
+							state.id = largeIdState;
+							city.id = largeIdCity;
+						}
+
+						state.name = name;
+						state2.name = name;
+						states.push(state);
+						states2.push(state2);
+
+						city.name = name;
+						city2.name = name;
+						cities.push(city);
+						cities2.push(city2);
+					}
+
+					await CreateItem(vendor, {
+						collection: localCollectionCountries,
+						item: [
+							{
+								...country,
+								states: {
+									create: states.map((state, index) => {
+										return {
+											...state,
+											cities: {
+												create: index === 0 ? cities : cities2,
+												update: [],
+												delete: [],
+											},
+										};
+									}),
+									update: [],
+									delete: [],
+								},
+							},
+							{
+								...country2,
+								states: {
+									create: states2.map((state) => {
+										return {
+											...state,
+											cities: {
+												create: cities2,
+												update: [],
+												delete: [],
+											},
+										};
+									}),
+									update: [],
+									delete: [],
+								},
+							},
+						],
+					});
+
+					// Action
+					const response = await request(getUrl(vendor))
+						.get(`/items/${localCollectionCountries}`)
+						.query({
+							filter: JSON.stringify({
+								name: { _eq: name },
+							}),
+							fields: 'id,states.id,states.cities.id',
+						})
+						.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`);
+
+					// Assert
+					expect(response.statusCode).toBe(200);
+					expect(response.body.data.length).toBe(2);
+
+					expect(response.body.data.map((country: any) => country.id)).toEqual(
+						Array.from({ length: 2 }, (_, index) => largeIdCountry + index)
+					);
+
+					expect(
+						response.body.data.flatMap((country: any) => country.states.flatMap((state: any) => state.id))
+					).toEqual(Array.from({ length: 4 }, (_, index) => largeIdState + index));
+
+					expect(
+						response.body.data.flatMap((country: any) =>
+							country.states.flatMap((state: any) => state.cities.map((city: any) => city.id))
+						)
+					).toEqual(Array.from({ length: 8 }, (_, index) => largeIdCity + index));
 				});
 			});
 		});

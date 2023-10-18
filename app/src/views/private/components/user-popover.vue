@@ -1,3 +1,71 @@
+<script setup lang="ts">
+import api from '@/api';
+import { userName } from '@/utils/user-name';
+import { User } from '@directus/types';
+import { computed, onUnmounted, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
+
+const props = defineProps<{
+	user: string;
+}>();
+
+const { t } = useI18n();
+
+const router = useRouter();
+
+const loading = ref(false);
+const error = ref(null);
+const data = ref<User | null>(null);
+
+const avatarSrc = computed(() => {
+	if (data.value === null) return null;
+
+	if (data.value.avatar?.id) {
+		return `/assets/${data.value.avatar.id}?key=system-medium-cover`;
+	}
+
+	return null;
+});
+
+const active = ref(false);
+
+watch(active, () => {
+	if (active.value === true && data.value === null && loading.value === false) {
+		fetchUser();
+	}
+});
+
+onUnmounted(() => {
+	loading.value = false;
+	error.value = null;
+	data.value = null;
+});
+
+async function fetchUser() {
+	loading.value = true;
+	error.value = null;
+
+	try {
+		const response = await api.get(`/users/${props.user}`, {
+			params: {
+				fields: ['id', 'first_name', 'last_name', 'avatar.id', 'role.name', 'status', 'email'],
+			},
+		});
+
+		data.value = response.data.data;
+	} catch (err: any) {
+		error.value = err;
+	} finally {
+		loading.value = false;
+	}
+}
+
+function navigateToUser() {
+	if (data.value) router.push(`/users/${data.value.id}`);
+}
+</script>
+
 <template>
 	<v-menu v-model="active" show-arrow placement="top" trigger="hover" :delay="300">
 		<template #activator><slot /></template>
@@ -22,88 +90,15 @@
 			</v-avatar>
 			<div class="data">
 				<div class="name type-title">{{ userName(data) }}</div>
-				<div class="status-role" :class="data.status">{{ t(data.status) }} {{ data.role.name }}</div>
+				<v-chip class="status" :class="data.status" small>
+					{{ t(`fields.directus_users.status_${data.status}`) }}
+				</v-chip>
+				<v-chip v-if="data.role?.name" small>{{ data.role.name }}</v-chip>
 				<div class="email">{{ data.email }}</div>
 			</div>
 		</div>
 	</v-menu>
 </template>
-
-<script lang="ts">
-import api from '@/api';
-import { userName } from '@/utils/user-name';
-import { User } from '@directus/types';
-import { computed, defineComponent, onUnmounted, ref, watch } from 'vue';
-import { useI18n } from 'vue-i18n';
-import { useRouter } from 'vue-router';
-
-export default defineComponent({
-	props: {
-		user: {
-			type: String,
-			required: true,
-		},
-	},
-	setup(props) {
-		const { t } = useI18n();
-
-		const router = useRouter();
-
-		const loading = ref(false);
-		const error = ref(null);
-		const data = ref<User | null>(null);
-
-		const avatarSrc = computed(() => {
-			if (data.value === null) return null;
-
-			if (data.value.avatar?.id) {
-				return `/assets/${data.value.avatar.id}?key=system-medium-cover`;
-			}
-
-			return null;
-		});
-
-		const active = ref(false);
-
-		watch(active, () => {
-			if (active.value === true && data.value === null && loading.value === false) {
-				fetchUser();
-			}
-		});
-
-		onUnmounted(() => {
-			loading.value = false;
-			error.value = null;
-			data.value = null;
-		});
-
-		return { t, loading, error, data, active, avatarSrc, userName, navigateToUser };
-
-		async function fetchUser() {
-			loading.value = true;
-			error.value = null;
-
-			try {
-				const response = await api.get(`/users/${props.user}`, {
-					params: {
-						fields: ['id', 'first_name', 'last_name', 'avatar.id', 'role.name', 'status', 'email'],
-					},
-				});
-
-				data.value = response.data.data;
-			} catch (err: any) {
-				error.value = err;
-			} finally {
-				loading.value = false;
-			}
-		}
-
-		function navigateToUser() {
-			if (data.value) router.push(`/users/${data.value.id}`);
-		}
-	},
-});
-</script>
 
 <style lang="scss" scoped>
 .hover-trigger {
@@ -120,21 +115,32 @@ export default defineComponent({
 		margin-right: 16px;
 	}
 
-	.status-role {
-		&.invited {
-			color: var(--primary);
-		}
+	.status {
+		margin-right: 4px;
 
 		&.active {
-			color: var(--success);
+			--v-chip-color: var(--success);
+			--v-chip-background-color: var(--success-25);
+		}
+
+		&.draft {
+			--v-chip-color: var(--pink);
+			--v-chip-background-color: var(--pink-25);
+		}
+
+		&.invited {
+			--v-chip-color: var(--primary);
+			--v-chip-background-color: var(--primary-25);
 		}
 
 		&.suspended {
-			color: var(--warning);
+			--v-chip-color: var(--warning);
+			--v-chip-background-color: var(--warning-25);
 		}
 
-		&.deleted {
-			color: var(--danger);
+		&.archived {
+			--v-chip-color: var(--danger);
+			--v-chip-background-color: var(--danger-25);
 		}
 	}
 

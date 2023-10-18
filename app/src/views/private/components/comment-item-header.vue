@@ -1,3 +1,64 @@
+<script setup lang="ts">
+import api from '@/api';
+import { Activity } from '@/types/activity';
+import { unexpectedError } from '@/utils/unexpected-error';
+import { userName } from '@/utils/user-name';
+import type { User } from '@directus/types';
+import format from 'date-fns/format';
+import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
+
+const props = defineProps<{
+	activity: Activity & {
+		display: string;
+		user: Pick<User, 'id' | 'email' | 'first_name' | 'last_name' | 'avatar'>;
+	};
+	refresh: () => void;
+}>();
+
+defineEmits(['edit']);
+
+const { t } = useI18n();
+
+const formattedTime = computed(() => {
+	if (props.activity.timestamp) {
+		// timestamp is in iso-8601
+		return format(new Date(props.activity.timestamp), String(t('date-fns_time_no_seconds')));
+	}
+
+	return null;
+});
+
+const avatarSource = computed(() => {
+	if (!props.activity.user?.avatar) return null;
+
+	return `/assets/${props.activity.user.avatar.id}?key=system-small-cover`;
+});
+
+const { confirmDelete, deleting, remove } = useDelete();
+
+function useDelete() {
+	const confirmDelete = ref(false);
+	const deleting = ref(false);
+
+	return { confirmDelete, deleting, remove };
+
+	async function remove() {
+		deleting.value = true;
+
+		try {
+			await api.delete(`/activity/comment/${props.activity.id}`);
+			await props.refresh();
+			confirmDelete.value = false;
+		} catch (err: any) {
+			unexpectedError(err);
+		} finally {
+			deleting.value = false;
+		}
+	}
+}
+</script>
+
 <template>
 	<div class="comment-header">
 		<v-avatar x-small>
@@ -58,64 +119,6 @@
 		</v-dialog>
 	</div>
 </template>
-
-<script setup lang="ts">
-import { userName } from '@/utils/user-name';
-import format from 'date-fns/format';
-import { computed, ref } from 'vue';
-import { useI18n } from 'vue-i18n';
-import { Activity } from '@/types/activity';
-
-import api from '@/api';
-import { unexpectedError } from '@/utils/unexpected-error';
-
-const props = defineProps<{
-	activity: Activity;
-	refresh: () => void;
-}>();
-
-defineEmits(['edit']);
-
-const { t } = useI18n();
-
-const formattedTime = computed(() => {
-	if (props.activity.timestamp) {
-		// timestamp is in iso-8601
-		return format(new Date(props.activity.timestamp), String(t('date-fns_time_no_seconds')));
-	}
-
-	return null;
-});
-
-const avatarSource = computed(() => {
-	if (!props.activity.user?.avatar) return null;
-
-	return `/assets/${props.activity.user.avatar.id}?key=system-small-cover`;
-});
-
-const { confirmDelete, deleting, remove } = useDelete();
-
-function useDelete() {
-	const confirmDelete = ref(false);
-	const deleting = ref(false);
-
-	return { confirmDelete, deleting, remove };
-
-	async function remove() {
-		deleting.value = true;
-
-		try {
-			await api.delete(`/activity/comment/${props.activity.id}`);
-			await props.refresh();
-			confirmDelete.value = false;
-		} catch (err: any) {
-			unexpectedError(err);
-		} finally {
-			deleting.value = false;
-		}
-	}
-}
-</script>
 
 <style lang="scss" scoped>
 .comment-header {

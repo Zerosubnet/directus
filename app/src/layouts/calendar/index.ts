@@ -1,26 +1,30 @@
 import api from '@/api';
 import { router } from '@/router';
-import { useAppStore } from '@/stores/app';
+import { useServerStore } from '@/stores/server';
 import { getFullcalendarLocale } from '@/utils/get-fullcalendar-locale';
+import { getItemRoute } from '@/utils/get-route';
 import { renderDisplayStringTemplate } from '@/utils/render-string-template';
 import { saveAsCSV } from '@/utils/save-as-csv';
 import { syncRefProperty } from '@/utils/sync-ref-property';
 import { unexpectedError } from '@/utils/unexpected-error';
 import { useCollection, useItems, useSync } from '@directus/composables';
+import { defineLayout } from '@directus/extensions';
+import { useAppStore } from '@directus/stores';
 import { Field, Item } from '@directus/types';
-import { defineLayout, getEndpoint, getFieldsFromTemplate } from '@directus/utils';
-import { Calendar, CalendarOptions as FullCalendarOptions, EventInput } from '@fullcalendar/core';
+import { getEndpoint, getFieldsFromTemplate } from '@directus/utils';
+import { Calendar, CssDimValue, EventInput, CalendarOptions as FullCalendarOptions } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import { format, formatISO, isValid, parse } from 'date-fns';
-import { computed, ref, Ref, toRefs, watch } from 'vue';
+import { Ref, computed, ref, toRefs, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import CalendarActions from './actions.vue';
 import CalendarLayout from './calendar.vue';
 import CalendarOptions from './options.vue';
 import { LayoutOptions } from './types';
+import { EventImpl } from '@fullcalendar/core/internal';
 
 export default defineLayout<LayoutOptions>({
 	id: 'calendar',
@@ -38,6 +42,7 @@ export default defineLayout<LayoutOptions>({
 		const calendar = ref<Calendar>();
 
 		const appStore = useAppStore();
+		const { info } = useServerStore();
 
 		const selection = useSync(props, 'selection', emit);
 		const layoutOptions = useSync(props, 'layoutOptions', emit);
@@ -108,12 +113,14 @@ export default defineLayout<LayoutOptions>({
 			return fields;
 		});
 
+		const limit = info.queryLimit?.max && info.queryLimit.max !== -1 ? info.queryLimit.max : 10000;
+
 		const { items, loading, error, totalPages, itemCount, totalCount, changeManualSort, getItems } = useItems(
 			collection,
 			{
 				sort: computed(() => [primaryKeyField.value?.field || '']),
 				page: ref(1),
-				limit: ref(10000),
+				limit: ref(limit),
 				fields: queryFields,
 				filter: filterWithCalendarView,
 				search: search,
@@ -131,7 +138,7 @@ export default defineLayout<LayoutOptions>({
 				eventResizableFromStart: true,
 				eventDurationEditable: true,
 				dayMaxEventRows: true,
-				height: '100%',
+				height: (props.layoutProps.height ?? '100%') as CssDimValue,
 				firstDay: firstDay.value ?? 0,
 				nextDayThreshold: '01:00:00',
 				plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin],
@@ -172,22 +179,19 @@ export default defineLayout<LayoutOptions>({
 					} else {
 						const primaryKey = info.event.id;
 
-						const route = collection.value.startsWith('directus_')
-							? collection.value.substring(9)
-							: `content/${collection.value}`;
-
-						router.push(`/${route}/${primaryKey}`);
+						router.push(getItemRoute(collection.value, primaryKey));
 					}
 				},
 				async eventChange(info) {
 					if (!collection.value || !startDateField.value || !startDateFieldInfo.value) return;
 
 					const itemChanges: Partial<Item> = {
-						[startDateField.value]: adjustForType(info.event.startStr, startDateFieldInfo.value.type),
+						[startDateField.value]: adjustDateTimeType(info.event.startStr, startDateFieldInfo.value.type),
 					};
 
 					if (endDateField.value && endDateFieldInfo.value && info.event.endStr) {
-						itemChanges[endDateField.value] = adjustForType(info.event.endStr, endDateFieldInfo.value.type);
+						const endDateStr = info.event.allDay ? adjustDateType(info.event) : info.event.endStr;
+						itemChanges[endDateField.value] = adjustDateTimeType(endDateStr, endDateFieldInfo.value.type);
 					}
 
 					const endpoint = getEndpoint(collection.value);
@@ -224,7 +228,10 @@ export default defineLayout<LayoutOptions>({
 			async () => {
 				if (calendar.value) {
 					const calendarLocale = await getFullcalendarLocale(locale.value);
-					calendar.value.setOption('locale', calendarLocale);
+
+					if (calendarLocale) {
+						calendar.value.setOption('locale', calendarLocale);
+					}
 				}
 			},
 			{ immediate: true }
@@ -316,7 +323,7 @@ export default defineLayout<LayoutOptions>({
 				id: primaryKey,
 				title:
 					renderDisplayStringTemplate(
-						collection.value,
+						collection.value!,
 						template.value || `{{ ${primaryKeyField.value.field} }}`,
 						item
 					) || item[primaryKeyField.value.field],
@@ -327,12 +334,21 @@ export default defineLayout<LayoutOptions>({
 			};
 		}
 
-		function adjustForType(dateString: string, type: string) {
+		function adjustDateTimeType(dateString: string, type: string) {
 			if (type === 'dateTime') {
 				return dateString.substring(0, 19);
 			}
 
 			return dateString;
+		}
+
+		function adjustDateType(event: EventImpl) {
+			if (!event.end) return event.endStr;
+			// because we add a day for the "Date" type rendering we need to
+			// remove that extra day here before saving the updated value
+			const date = event.end;
+			date.setDate(date.getDate() - 1);
+			return format(date, 'yyyy-MM-dd');
 		}
 	},
 });

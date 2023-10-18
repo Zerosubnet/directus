@@ -1,18 +1,29 @@
 import type { Accountability, Aggregate, Filter, Query } from '@directus/types';
 import { parseFilter, parseJSON } from '@directus/utils';
 import { flatten, get, isPlainObject, merge, set } from 'lodash-es';
+import { getEnv } from '../env.js';
 import logger from '../logger.js';
 import { Meta } from '../types/index.js';
 
 export function sanitizeQuery(rawQuery: Record<string, any>, accountability?: Accountability | null): Query {
 	const query: Query = {};
 
+	const env = getEnv();
+
+	const hasMaxLimit =
+		'QUERY_LIMIT_MAX' in env &&
+		Number(env['QUERY_LIMIT_MAX']) >= 0 &&
+		!Number.isNaN(Number(env['QUERY_LIMIT_MAX'])) &&
+		Number.isFinite(Number(env['QUERY_LIMIT_MAX']));
+
 	if (rawQuery['limit'] !== undefined) {
 		const limit = sanitizeLimit(rawQuery['limit']);
 
 		if (typeof limit === 'number') {
-			query.limit = limit;
+			query.limit = limit === -1 && hasMaxLimit ? Number(env['QUERY_LIMIT_MAX']) : limit;
 		}
+	} else if (hasMaxLimit) {
+		query.limit = Math.min(Number(env['QUERY_LIMIT_DEFAULT']), Number(env['QUERY_LIMIT_MAX']));
 	}
 
 	if (rawQuery['fields']) {
@@ -35,7 +46,7 @@ export function sanitizeQuery(rawQuery: Record<string, any>, accountability?: Ac
 		query.filter = sanitizeFilter(rawQuery['filter'], accountability || null);
 	}
 
-	if (rawQuery['offset']) {
+	if (rawQuery['offset'] !== undefined) {
 		query.offset = sanitizeOffset(rawQuery['offset']);
 	}
 
@@ -171,20 +182,26 @@ function sanitizeDeep(deep: Record<string, any>, accountability?: Accountability
 	return result;
 
 	function parse(level: Record<string, any>, path: string[] = []) {
+		const subQuery: Record<string, any> = {};
 		const parsedLevel: Record<string, any> = {};
 
 		for (const [key, value] of Object.entries(level)) {
 			if (!key) break;
 
 			if (key.startsWith('_')) {
-				// Sanitize query only accepts non-underscore-prefixed query options
-				const parsedSubQuery = sanitizeQuery({ [key.substring(1)]: value }, accountability);
-				// ...however we want to keep them for the nested structure of deep, otherwise there's no
-				// way of knowing when to keep nesting and when to stop
-				const [parsedKey, parsedValue] = Object.entries(parsedSubQuery)[0]!;
-				parsedLevel[`_${parsedKey}`] = parsedValue;
+				// Collect all sub query parameters without the leading underscore
+				subQuery[key.substring(1)] = value;
 			} else if (isPlainObject(value)) {
 				parse(value, [...path, key]);
+			}
+		}
+
+		if (Object.keys(subQuery).length > 0) {
+			// Sanitize the entire sub query
+			const parsedSubQuery = sanitizeQuery(subQuery, accountability);
+
+			for (const [parsedKey, parsedValue] of Object.entries(parsedSubQuery)) {
+				parsedLevel[`_${parsedKey}`] = parsedValue;
 			}
 		}
 

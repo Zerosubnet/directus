@@ -1,4 +1,4 @@
-import { defineInterface } from '@directus/utils';
+import { defineInterface } from '@directus/extensions';
 import { defineAsyncComponent } from 'vue';
 import PreviewSVG from './preview.svg?raw';
 
@@ -251,9 +251,6 @@ export default defineInterface({
 					width: 'half',
 					interface: 'system-folder',
 					note: '$t:interfaces.input-rich-text-html.folder_note',
-				},
-				schema: {
-					default_value: undefined,
 				},
 			},
 			{

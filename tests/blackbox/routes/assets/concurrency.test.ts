@@ -1,15 +1,16 @@
-import { getUrl } from '@common/config';
-import request from 'supertest';
+import { getUrl, paths } from '@common/config';
 import vendors from '@common/get-dbs-to-test';
-import { createReadStream } from 'fs';
-import path from 'path';
-import * as common from '@common/index';
+import { USER } from '@common/variables';
 import { sleep } from '@utils/sleep';
 import { spawn } from 'child_process';
+import { createReadStream } from 'fs';
+import { join } from 'path';
+import request from 'supertest';
+import { describe, expect, it } from 'vitest';
 
-const assetsDirectory = [__dirname, '..', '..', 'assets'];
+const assetsDirectory = [paths.cwd, 'assets'];
 const storages = ['local', 'minio'];
-const imageFilePath = path.join(...assetsDirectory, 'layers.png');
+const imageFilePath = join(...assetsDirectory, 'layers.png');
 
 describe('/assets', () => {
 	describe('GET /assets/:id', () => {
@@ -26,7 +27,7 @@ describe('/assets', () => {
 
 						const insertResponse = await request(getUrl(vendor))
 							.post('/files')
-							.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`)
+							.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`)
 							.field('storage', storage)
 							.attach('file', createReadStream(imageFilePath));
 
@@ -34,23 +35,25 @@ describe('/assets', () => {
 						spawnAutoCannon();
 
 						function spawnAutoCannon() {
-							const url = `${getUrl(vendor)}/assets/${insertResponse.body.data.id}?access_token=${
-								common.USER.ADMIN.TOKEN
-							}`;
+							const url = `${getUrl(vendor)}/assets/${insertResponse.body.data.id}?access_token=${USER.ADMIN.TOKEN}`;
 
-							const options = ['exec', 'autocannon', '-c', '100', url];
+							const options = ['exec', 'autocannon', '-j', '-c', '100', url];
 							const child = spawn('pnpm', options);
 
 							isSpawnRunning = true;
 
-							child.stderr.on('data', (data) => {
-								if (String(data).includes('errors')) {
-									hasErrors = true;
-								}
+							let log = '';
+
+							child.stdout.on('data', (data) => {
+								log += String(data);
 							});
 
 							child.on('close', () => {
 								spawnCount++;
+
+								const result = JSON.parse(log);
+
+								if (result.timeouts > 0 || result.non2xx > 0) hasErrors = true;
 
 								if (spawnCount < spawnCountTarget && !hasErrors) {
 									spawnAutoCannon();
@@ -67,7 +70,7 @@ describe('/assets', () => {
 						// Assert
 						expect(hasErrors).toBe(false);
 					},
-					600000
+					600_000
 				);
 			});
 		});

@@ -1,25 +1,12 @@
 ---
 description: A simple recipe to slugify a string of text using the Run Script operation.
-tags: []
-skill_level:
 directus_version: 9.18.1
-author_override:
 author: Eron Powell
 ---
 
 # Slugify Text With Flows
 
-> {{ $frontmatter.description }}
-
-:::tip Author: {{$frontmatter.author}}
-
-<!-- **Skill Level:** {{$frontmatter.skill_level}}\ -->
-
-**Directus Version:** {{$frontmatter.directus_version}}
-
-<!-- **Tags:** {{$frontmatter.tags.join(", ")}} -->
-
-:::
+<GuideMeta />
 
 ## Explanation
 
@@ -29,13 +16,13 @@ English text.
 
 ## The Recipe
 
-:::tip Requirements
+::: tip Requirements
 
-You'll need a string somewhere in your [data chain](/configuration/flows.md#data-chains).
+You'll need a string somewhere in your [data chain](/app/flows#data-chains).
 
 :::
 
-1. Create a [Run Script](/configuration/flows/operations.md#run-script) operation in your flow.
+1. Create a [Run Script](/app/flows/operations#run-script) operation in your flow.
 2. Paste the following function into your Run Script operation.
 
 ```js

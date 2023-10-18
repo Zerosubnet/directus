@@ -1,33 +1,16 @@
-<template>
-	<div class="comment-item">
-		<comment-item-header :refresh="refresh" :activity="activity" @edit="editing = true" />
-
-		<comment-input
-			v-if="editing"
-			:existing-comment="activity"
-			:primary-key="primaryKey"
-			:collection="collection"
-			:refresh="refresh"
-			:previews="userPreviews"
-			@cancel="cancelEditing"
-		/>
-
-		<div v-else v-md="{ value: activity.display, target: '_blank' }" class="content selectable" />
-	</div>
-</template>
-
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-import { Activity } from '@/types/activity';
-import CommentItemHeader from './comment-item-header.vue';
-import CommentInput from './comment-input.vue';
-
 import api from '@/api';
+import { Activity } from '@/types/activity';
 import { unexpectedError } from '@/utils/unexpected-error';
+import type { User } from '@directus/types';
+import { ref, watch } from 'vue';
+import CommentInput from './comment-input.vue';
+import CommentItemHeader from './comment-item-header.vue';
 
 interface Props {
 	activity: Activity & {
 		display: string;
+		user: Pick<User, 'id' | 'email' | 'first_name' | 'last_name' | 'avatar'>;
 	};
 	refresh: () => void;
 	collection: string;
@@ -76,6 +59,24 @@ function useEdits() {
 	}
 }
 </script>
+
+<template>
+	<div class="comment-item">
+		<comment-item-header :refresh="refresh" :activity="activity" @edit="editing = true" />
+
+		<comment-input
+			v-if="editing"
+			:existing-comment="activity"
+			:primary-key="primaryKey"
+			:collection="collection"
+			:refresh="refresh"
+			:previews="userPreviews"
+			@cancel="cancelEditing"
+		/>
+
+		<div v-else v-md="{ value: activity.display, target: '_blank' }" class="content selectable" />
+	</div>
+</template>
 
 <style lang="scss" scoped>
 .comment-item {

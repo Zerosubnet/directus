@@ -1,11 +1,19 @@
 import { Knex } from 'knex';
-import path from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'util';
-import { allVendors } from './get-dbs-to-test';
+import { allVendors, type Vendor } from './get-dbs-to-test';
 
-type Vendor = (typeof allVendors)[number];
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export type Env = Record<Vendor, Record<string, string>>;
+export type Env = Record<
+	Vendor,
+	{
+		DB_CLIENT: string;
+		PORT: string;
+		[key: string]: string;
+	}
+>;
 export type Config = {
 	knexConfig: Record<Vendor, Knex.Config & { waitTestSQL: string }>;
 	names: Record<Vendor, string>;
@@ -13,8 +21,8 @@ export type Config = {
 };
 
 export const paths = {
-	cli: path.join(__dirname, '..', '..', '..', 'dist', 'cli'),
-	cwd: path.join(__dirname, '..'),
+	cli: join(__dirname, '..', '..', '..', 'dist', 'cli'),
+	cwd: join(__dirname, '..'),
 };
 
 const migrationsDir = './setup/migrations';
@@ -32,11 +40,11 @@ const knexConfig = {
 
 const allowedLogLevels = ['trace', 'debug', 'info', 'warn', 'error', 'fatal'];
 
-const logLevel = process.env.TEST_SAVE_LOGS
-	? allowedLogLevels.includes(process.env.TEST_SAVE_LOGS)
-		? process.env.TEST_SAVE_LOGS
-		: 'info'
-	: 'error';
+let logLevel = 'error';
+
+if (process.env['TEST_SAVE_LOGS']) {
+	logLevel = allowedLogLevels.includes(process.env['TEST_SAVE_LOGS']) ? process.env['TEST_SAVE_LOGS'] : 'info';
+}
 
 const directusAuthConfig = {
 	AUTH_PROVIDERS: 'saml',
@@ -72,6 +80,7 @@ const directusConfig = {
 	CACHE_SCHEMA: 'true',
 	CACHE_ENABLED: 'false',
 	RATE_LIMITER_ENABLED: 'false',
+	PRESSURE_LIMITER_ENABLED: 'false',
 	LOG_LEVEL: logLevel,
 	SERVE_APP: 'false',
 	DB_EXCLUDE_TABLES: 'knex_migrations,knex_migrations_lock,spatial_ref_sys,sysdiagrams',
@@ -81,6 +90,7 @@ const directusConfig = {
 	ASSETS_TRANSFORM_MAX_CONCURRENT: '2',
 	MAX_BATCH_MUTATION: '100', // Must be in multiples of 10 for tests
 	ACCESS_TOKEN_TTL: '25d', // should be larger than 24.86 days to test Expires value larger than 32-bit signed integer
+	WEBSOCKETS_ENABLED: 'true',
 	...directusAuthConfig,
 	...directusStorageConfig,
 };
@@ -301,16 +311,16 @@ const config: Config = {
 const isWindows = ['win32', 'win64'].includes(process.platform);
 
 for (const vendor of allVendors) {
-	config.envs[vendor]!.TZ = isWindows ? '0' : 'UTC';
+	config.envs[vendor]['TZ'] = isWindows ? '0' : 'UTC';
 }
 
-export function getUrl(vendor: (typeof allVendors)[number], overrideEnv?: Env) {
-	let port = overrideEnv ? overrideEnv[vendor]!.PORT : config.envs[vendor]!.PORT;
+export function getUrl(vendor: Vendor, overrideEnv?: Env) {
+	let port = overrideEnv ? overrideEnv[vendor].PORT : config.envs[vendor].PORT;
 
-	if (process.env.TEST_LOCAL) {
+	if (process.env['TEST_LOCAL']) {
 		port = '8055';
-	} else if (process.env.TEST_NO_CACHE) {
-		port = String(parseInt(config.envs[vendor]!.PORT) + 50);
+	} else if (process.env['TEST_NO_CACHE']) {
+		port = String(parseInt(config.envs[vendor].PORT) + 50);
 	}
 
 	return `http://127.0.0.1:${port}`;

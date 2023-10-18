@@ -1,3 +1,44 @@
+<script setup lang="ts">
+import { debounce } from 'lodash';
+import { ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
+
+export type Choice = {
+	text: string;
+	value: string | number;
+	children?: Choice[];
+};
+
+withDefaults(
+	defineProps<{
+		value: string[] | null;
+		disabled?: boolean;
+		choices?: Choice[];
+		valueCombining?: 'all' | 'branch' | 'leaf' | 'indeterminate' | 'exclusive';
+	}>(),
+	{
+		value: () => [],
+		choices: () => [],
+		valueCombining: 'all',
+	}
+);
+
+defineEmits(['input']);
+
+const { t } = useI18n();
+const search = ref('');
+
+const showSelectionOnly = ref(false);
+
+const setSearchDebounced = debounce((val: string) => {
+	searchDebounced.value = val;
+}, 250);
+
+watch(search, setSearchDebounced);
+
+const searchDebounced = ref('');
+</script>
+
 <template>
 	<div class="select-multiple-checkbox-tree">
 		<div v-if="choices.length > 10" class="search">
@@ -23,66 +64,20 @@
 		/>
 
 		<div class="footer">
-			<span :class="{ active: showSelectionOnly === false }" @click="showSelectionOnly = false">
+			<button :class="{ active: showSelectionOnly === false }" @click="showSelectionOnly = false">
 				{{ t('interfaces.select-multiple-checkbox-tree.show_all') }}
-			</span>
+			</button>
 			/
-			<span :class="{ active: showSelectionOnly === true }" @click="showSelectionOnly = true">
+			<button
+				:class="{ active: showSelectionOnly === true }"
+				:disabled="value == null || value.length === 0"
+				@click="showSelectionOnly = true"
+			>
 				{{ t('interfaces.select-multiple-checkbox-tree.show_selected') }}
-			</span>
+			</button>
 		</div>
 	</div>
 </template>
-
-<script lang="ts">
-import { debounce } from 'lodash';
-import { defineComponent, PropType, ref, watch } from 'vue';
-import { useI18n } from 'vue-i18n';
-
-type Choice = {
-	text: string;
-	value: string | number;
-	children?: Choice[];
-};
-
-export default defineComponent({
-	props: {
-		value: {
-			type: Array as PropType<string[]>,
-			default: () => [],
-		},
-		disabled: {
-			type: Boolean,
-			default: false,
-		},
-		choices: {
-			type: Array as PropType<Choice[]>,
-			default: () => [],
-		},
-		valueCombining: {
-			type: String as PropType<'all' | 'branch' | 'leaf' | 'indeterminate' | 'exclusive'>,
-			default: 'all',
-		},
-	},
-	emits: ['input'],
-	setup() {
-		const { t } = useI18n();
-		const search = ref('');
-
-		const showSelectionOnly = ref(false);
-
-		const setSearchDebounced = debounce((val: string) => {
-			searchDebounced.value = val;
-		}, 250);
-
-		watch(search, setSearchDebounced);
-
-		const searchDebounced = ref('');
-
-		return { search, t, searchDebounced, showSelectionOnly };
-	},
-});
-</script>
 
 <style scoped>
 .select-multiple-checkbox-tree {
@@ -118,17 +113,22 @@ export default defineComponent({
 	border-top-left-radius: var(--border-radius);
 }
 
-.footer > span {
+.footer > button {
 	color: var(--foreground-subdued);
 	cursor: pointer;
 	transition: color var(--fast) var(--transition);
 }
 
-.footer > span:hover {
+.footer > button:hover {
 	color: var(--foreground-normal);
 }
 
-.footer > span.active {
+.footer > button.active {
 	color: var(--primary);
+}
+
+.footer > button:disabled {
+	color: var(--foreground-subdued);
+	cursor: not-allowed;
 }
 </style>

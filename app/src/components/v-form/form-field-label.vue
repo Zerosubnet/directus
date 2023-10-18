@@ -1,3 +1,40 @@
+<script setup lang="ts">
+import { useI18n } from 'vue-i18n';
+import type { FormField } from './types';
+
+interface Props {
+	field: FormField;
+	toggle: (event: Event) => any;
+	batchMode?: boolean;
+	batchActive?: boolean;
+	disabled?: boolean;
+	active?: boolean;
+	edited?: boolean;
+	hasError?: boolean;
+	badge?: string | null;
+	loading?: boolean;
+	rawEditorEnabled?: boolean;
+	rawEditorActive?: boolean;
+}
+
+withDefaults(defineProps<Props>(), {
+	batchMode: false,
+	batchActive: false,
+	disabled: false,
+	active: false,
+	edited: false,
+	hasError: false,
+	badge: null,
+	loading: false,
+	rawEditorEnabled: false,
+	rawEditorActive: false,
+});
+
+defineEmits(['toggle-batch', 'toggle-raw']);
+
+const { t } = useI18n();
+</script>
+
 <template>
 	<div class="field-label type-label" :class="{ disabled, edited: edited && !batchMode && !hasError && !loading }">
 		<span class="field-name" @click="toggle">
@@ -32,43 +69,6 @@
 		</span>
 	</div>
 </template>
-
-<script setup lang="ts">
-import { useI18n } from 'vue-i18n';
-import { Field } from '@directus/types';
-
-interface Props {
-	field: Field;
-	toggle: (event: Event) => any;
-	batchMode?: boolean;
-	batchActive?: boolean;
-	disabled?: boolean;
-	active?: boolean;
-	edited?: boolean;
-	hasError?: boolean;
-	badge?: string | null;
-	loading?: boolean;
-	rawEditorEnabled?: boolean;
-	rawEditorActive?: boolean;
-}
-
-withDefaults(defineProps<Props>(), {
-	batchMode: false,
-	batchActive: false,
-	disabled: false,
-	active: false,
-	edited: false,
-	hasError: false,
-	badge: null,
-	loading: false,
-	rawEditorEnabled: false,
-	rawEditorActive: false,
-});
-
-defineEmits(['toggle-batch', 'toggle-raw']);
-
-const { t } = useI18n();
-</script>
 
 <style lang="scss" scoped>
 .field-label {

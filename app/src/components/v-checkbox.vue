@@ -1,24 +1,3 @@
-<template>
-	<component
-		:is="customValue ? 'div' : 'button'"
-		class="v-checkbox"
-		type="button"
-		role="checkbox"
-		:aria-pressed="isChecked ? 'true' : 'false'"
-		:disabled="disabled"
-		:class="{ checked: isChecked, indeterminate, block }"
-		@click.stop="toggleInput"
-	>
-		<div v-if="$slots.prepend" class="prepend"><slot name="prepend" /></div>
-		<v-icon class="checkbox" :name="icon" :disabled="disabled" />
-		<span class="label type-text">
-			<slot v-if="customValue === false">{{ label }}</slot>
-			<input v-else v-model="internalValue" class="custom-input" />
-		</span>
-		<div v-if="$slots.append" class="append"><slot name="append" /></div>
-	</component>
-</template>
-
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useSync } from '@directus/composables';
@@ -92,21 +71,44 @@ function toggleInput(): void {
 		emit('update:indeterminate', false);
 	}
 
-	if (props.modelValue instanceof Array && props.value) {
-		const newValue = [...props.modelValue];
+	if (props.modelValue instanceof Array) {
+		if (props.value) {
+			const newValue = [...props.modelValue];
 
-		if (props.modelValue.includes(props.value) === false) {
-			newValue.push(props.value);
-		} else {
-			newValue.splice(newValue.indexOf(props.value), 1);
+			if (!props.modelValue.includes(props.value)) {
+				newValue.push(props.value);
+			} else {
+				newValue.splice(newValue.indexOf(props.value), 1);
+			}
+
+			emit('update:modelValue', newValue);
 		}
-
-		emit('update:modelValue', newValue);
 	} else {
 		emit('update:modelValue', !props.modelValue);
 	}
 }
 </script>
+
+<template>
+	<component
+		:is="customValue ? 'div' : 'button'"
+		class="v-checkbox"
+		type="button"
+		role="checkbox"
+		:aria-pressed="isChecked ? 'true' : 'false'"
+		:disabled="disabled"
+		:class="{ checked: isChecked, indeterminate, block }"
+		@click.stop="toggleInput"
+	>
+		<div v-if="$slots.prepend" class="prepend"><slot name="prepend" /></div>
+		<v-icon class="checkbox" :name="icon" :disabled="disabled" />
+		<span class="label type-text">
+			<slot v-if="!customValue">{{ label }}</slot>
+			<input v-else v-model="internalValue" class="custom-input" @click.stop="" />
+		</span>
+		<div v-if="$slots.append" class="append"><slot name="append" /></div>
+	</component>
+</template>
 
 <style>
 body {

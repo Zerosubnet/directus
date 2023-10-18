@@ -1,3 +1,16 @@
+<script lang="ts">
+export default {
+	inheritAttrs: false,
+};
+</script>
+
+<script setup lang="ts">
+defineProps<{
+	itemCount?: number;
+	showingCount?: string;
+}>();
+</script>
+
 <template>
 	<transition name="fade">
 		<span v-if="itemCount" class="item-count">
@@ -5,24 +18,6 @@
 		</span>
 	</transition>
 </template>
-
-<script lang="ts">
-import { defineComponent } from 'vue';
-
-export default defineComponent({
-	inheritAttrs: false,
-	props: {
-		itemCount: {
-			type: Number,
-			default: null,
-		},
-		showingCount: {
-			type: String,
-			default: null,
-		},
-	},
-});
-</script>
 
 <style lang="scss" scoped>
 .item-count {

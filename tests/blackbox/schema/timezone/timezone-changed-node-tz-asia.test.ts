@@ -1,14 +1,15 @@
 import config, { getUrl, paths } from '@common/config';
-import vendors from '@common/get-dbs-to-test';
-import * as common from '@common/index';
+import vendors, { type Vendor } from '@common/get-dbs-to-test';
+import { USER } from '@common/variables';
 import { awaitDirectusConnection } from '@utils/await-connection';
 import { sleep } from '@utils/sleep';
 import { validateDateDifference } from '@utils/validate-date-difference';
 import { ChildProcess, spawn } from 'child_process';
 import type { Knex } from 'knex';
 import knex from 'knex';
-import { cloneDeep } from 'lodash';
+import { cloneDeep } from 'lodash-es';
 import request from 'supertest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const collectionName = 'schema_timezone_tests';
 
@@ -25,15 +26,22 @@ type SchemaTimezoneTypesResponse = SchemaTimezoneTypesObject & {
 };
 
 describe('schema', () => {
-	const databases = new Map<string, Knex>();
-	const tzDirectus = {} as { [vendor: string]: ChildProcess };
+	const databases = new Map<Vendor, Knex>();
+	const tzDirectus = {} as Record<Vendor, ChildProcess>;
 	const currentTzOffset = new Date().getTimezoneOffset();
 	const isWindows = ['win32', 'win64'].includes(process.platform);
 
 	const newTzOffset = currentTzOffset !== -540 ? -540 : -240;
+	let newTz: string;
 
 	// Different timezone format for Windows
-	const newTz = isWindows ? String(newTzOffset * 60) : newTzOffset === -540 ? 'Asia/Seoul' : 'Asia/Dubai';
+	if (isWindows) {
+		newTz = String(newTzOffset * 60);
+	} else if (newTzOffset === -540) {
+		newTz = 'Asia/Seoul';
+	} else {
+		newTz = 'Asia/Dubai';
+	}
 
 	const sampleDates: SchemaTimezoneTypesObject[] = [];
 
@@ -69,8 +77,8 @@ describe('schema', () => {
 			const newServerPort = Number(config.envs[vendor]!.PORT) + 100;
 			databases.set(vendor, knex(config.knexConfig[vendor]!));
 
-			config.envs[vendor]!.TZ = newTz;
-			config.envs[vendor]!.PORT = String(newServerPort);
+			config.envs[vendor]['TZ'] = newTz;
+			config.envs[vendor].PORT = String(newServerPort);
 
 			const server = spawn('node', [paths.cli, 'start'], { cwd: paths.cwd, env: config.envs[vendor] });
 			tzDirectus[vendor] = server;
@@ -91,10 +99,10 @@ describe('schema', () => {
 
 	afterAll(async () => {
 		for (const [vendor, connection] of databases) {
-			tzDirectus[vendor]!.kill();
+			tzDirectus[vendor].kill();
 
-			config.envs[vendor]!.PORT = String(Number(config.envs[vendor]!.PORT) - 100);
-			delete config.envs[vendor]!.TZ;
+			config.envs[vendor].PORT = String(Number(config.envs[vendor].PORT) - 100);
+			delete config.envs[vendor]['TZ'];
 
 			await connection.destroy();
 		}
@@ -107,7 +115,7 @@ describe('schema', () => {
 
 				const response = await request(getUrl(vendor))
 					.get(`/items/${collectionName}?fields=*&limit=${sampleDates.length}`)
-					.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`)
+					.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`)
 					.expect('Content-Type', /application\/json/)
 					.expect(200);
 
@@ -177,7 +185,7 @@ describe('schema', () => {
 
 				const response2 = await request(getUrl(vendor))
 					.get(`/items/${collectionName}?fields=*&offset=${sampleDates.length}`)
-					.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`)
+					.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`)
 					.expect('Content-Type', /application\/json/)
 					.expect(200);
 
@@ -263,7 +271,7 @@ describe('schema', () => {
 					await request(getUrl(vendor))
 						.post(`/items/${collectionName}`)
 						.send(dates)
-						.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`)
+						.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`)
 						.expect('Content-Type', /application\/json/)
 						.expect(200);
 
@@ -271,7 +279,7 @@ describe('schema', () => {
 
 					const response = await request(getUrl(vendor))
 						.get(`/items/${collectionName}?fields=*&offset=${sampleDates.length * 2}`)
-						.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`)
+						.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`)
 						.expect('Content-Type', /application\/json/)
 						.expect(200);
 
@@ -337,7 +345,7 @@ describe('schema', () => {
 
 				const existingDataResponse = await request(getUrl(vendor))
 					.get(`/items/${collectionName}?fields=*&limit=1&offset=${sampleDates.length * 2}`)
-					.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`)
+					.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`)
 					.expect('Content-Type', /application\/json/)
 					.expect(200);
 
@@ -346,7 +354,7 @@ describe('schema', () => {
 				await request(getUrl(vendor))
 					.patch(`/items/${collectionName}/${existingDataResponse.body.data[0].id}`)
 					.send(payload)
-					.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`)
+					.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`)
 					.expect('Content-Type', /application\/json/)
 					.expect(200);
 
@@ -354,7 +362,7 @@ describe('schema', () => {
 
 				const response = await request(getUrl(vendor))
 					.get(`/items/${collectionName}/${existingDataResponse.body.data[0].id}?fields=*`)
-					.set('Authorization', `Bearer ${common.USER.ADMIN.TOKEN}`)
+					.set('Authorization', `Bearer ${USER.ADMIN.TOKEN}`)
 					.expect('Content-Type', /application\/json/)
 					.expect(200);
 

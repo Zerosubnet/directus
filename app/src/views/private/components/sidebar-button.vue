@@ -1,3 +1,26 @@
+<script setup lang="ts">
+import { useAppStore } from '@directus/stores';
+import { toRefs } from 'vue';
+
+withDefaults(
+	defineProps<{
+		to?: string;
+		icon?: string;
+		active?: boolean;
+	}>(),
+	{
+		icon: 'box',
+	}
+);
+
+defineEmits<{
+	(e: 'click', event: MouseEvent): void;
+}>();
+
+const appStore = useAppStore();
+const { sidebarOpen } = toRefs(appStore);
+</script>
+
 <template>
 	<component
 		:is="to ? 'router-link' : 'button'"
@@ -6,42 +29,13 @@
 		@click="$emit('click', $event)"
 	>
 		<div class="icon">
-			<v-icon :name="icon" />
+			<v-icon :name="icon!" />
 		</div>
 		<div v-if="sidebarOpen" class="title">
 			<slot />
 		</div>
 	</component>
 </template>
-
-<script lang="ts">
-import { defineComponent, toRefs } from 'vue';
-import { useAppStore } from '@/stores/app';
-
-export default defineComponent({
-	props: {
-		to: {
-			type: String,
-			default: null,
-		},
-		icon: {
-			type: String,
-			default: 'box',
-		},
-		active: {
-			type: Boolean,
-			default: false,
-		},
-	},
-	emits: ['click'],
-	setup() {
-		const appStore = useAppStore();
-		const { sidebarOpen } = toRefs(appStore);
-
-		return { sidebarOpen };
-	},
-});
-</script>
 
 <style lang="scss" scoped>
 .sidebar-button {

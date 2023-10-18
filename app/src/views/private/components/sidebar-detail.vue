@@ -1,3 +1,24 @@
+<script setup lang="ts">
+import { useGroupable } from '@directus/composables';
+import { useAppStore } from '@directus/stores';
+import { toRefs } from 'vue';
+
+const props = defineProps<{
+	icon: string;
+	title: string;
+	badge?: boolean | string | number;
+	close?: boolean;
+}>();
+
+const { active, toggle } = useGroupable({
+	value: props.title,
+	group: 'sidebar-detail',
+});
+
+const appStore = useAppStore();
+const { sidebarOpen } = toRefs(appStore);
+</script>
+
 <template>
 	<div class="sidebar-detail" :class="{ open: sidebarOpen }">
 		<button v-tooltip.left="!sidebarOpen && title" class="toggle" :class="{ open: active }" @click="toggle">
@@ -25,43 +46,6 @@
 		</transition-expand>
 	</div>
 </template>
-
-<script lang="ts">
-import { defineComponent, toRefs } from 'vue';
-import { useAppStore } from '@/stores/app';
-import { useGroupable } from '@directus/composables';
-
-export default defineComponent({
-	props: {
-		icon: {
-			type: String,
-			required: true,
-		},
-		title: {
-			type: String,
-			required: true,
-		},
-		badge: {
-			type: [Boolean, String, Number],
-			default: null,
-		},
-		close: {
-			type: Boolean,
-			default: false,
-		},
-	},
-	setup(props) {
-		const { active, toggle } = useGroupable({
-			value: props.title,
-			group: 'sidebar-detail',
-		});
-
-		const appStore = useAppStore();
-		const { sidebarOpen } = toRefs(appStore);
-		return { active, toggle, sidebarOpen };
-	},
-});
-</script>
 
 <style>
 body {

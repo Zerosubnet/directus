@@ -1,11 +1,3 @@
-import {
-	BUNDLE_EXTENSION_TYPES,
-	EXTENSION_LANGUAGES,
-	EXTENSION_NAME_REGEX,
-	EXTENSION_PKG_KEY,
-	EXTENSION_TYPES,
-	HYBRID_EXTENSION_TYPES,
-} from '@directus/constants';
 import type {
 	ApiExtensionType,
 	AppExtensionType,
@@ -13,7 +5,15 @@ import type {
 	ExtensionOptions,
 	ExtensionType,
 	HybridExtensionType,
-} from '@directus/types';
+} from '@directus/extensions';
+import {
+	BUNDLE_EXTENSION_TYPES,
+	EXTENSION_LANGUAGES,
+	EXTENSION_NAME_REGEX,
+	EXTENSION_PKG_KEY,
+	EXTENSION_TYPES,
+	HYBRID_EXTENSION_TYPES,
+} from '@directus/extensions';
 import { isIn } from '@directus/utils';
 import chalk from 'chalk';
 import { execa } from 'execa';
@@ -170,6 +170,7 @@ function getPackageManifest(name: string, options: ExtensionOptions, deps: Recor
 		icon: 'extension',
 		version: '1.0.0',
 		keywords: ['directus', 'directus-extension', `directus-custom-${options.type}`],
+		type: 'module',
 		[EXTENSION_PKG_KEY]: options,
 		scripts: {
 			build: 'directus-extension build',

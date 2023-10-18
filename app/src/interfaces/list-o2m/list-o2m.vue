@@ -1,222 +1,25 @@
-<template>
-	<v-notice v-if="!relationInfo" type="warning">
-		{{ t('relationship_not_setup') }}
-	</v-notice>
-	<v-notice v-else-if="relationInfo.relatedCollection.meta?.singleton" type="warning">
-		{{ t('no_singleton_relations') }}
-	</v-notice>
-	<div v-else class="one-to-many">
-		<div :class="{ bordered: layout === LAYOUTS.TABLE }">
-			<div v-if="layout === LAYOUTS.TABLE" class="actions" :class="width">
-				<div class="spacer" />
-
-				<div v-if="totalItemCount" class="item-count">
-					{{ showingCount }}
-				</div>
-
-				<div v-if="enableSearchFilter && (totalItemCount > 10 || search || searchFilter)" class="search">
-					<search-input
-						v-model="search"
-						v-model:filter="searchFilter"
-						:collection="relationInfo.relatedCollection.collection"
-					/>
-				</div>
-
-				<v-button
-					v-if="!disabled && enableSelect && updateAllowed"
-					v-tooltip.bottom="updateAllowed ? t('add_existing') : t('not_allowed')"
-					rounded
-					icon
-					:secondary="enableCreate"
-					@click="selectModalActive = true"
-				>
-					<v-icon name="playlist_add" />
-				</v-button>
-
-				<v-button
-					v-if="!disabled && enableCreate && createAllowed && updateAllowed"
-					v-tooltip.bottom="createAllowed ? t('create_item') : t('not_allowed')"
-					rounded
-					icon
-					@click="createItem"
-				>
-					<v-icon name="add" />
-				</v-button>
-			</div>
-
-			<v-table
-				v-if="layout === LAYOUTS.TABLE"
-				v-model:sort="sort"
-				v-model:headers="headers"
-				:class="{ 'no-last-border': totalItemCount <= 10 }"
-				:loading="loading"
-				:show-manual-sort="allowDrag"
-				:manual-sort-key="relationInfo?.sortField"
-				:items="displayItems"
-				:row-height="tableRowHeight"
-				show-resize
-				@click:row="editRow"
-				@update:items="sortItems"
-			>
-				<template v-for="header in headers" :key="header.value" #[`item.${header.value}`]="{ item }">
-					<render-template
-						:title="header.value"
-						:collection="relationInfo.relatedCollection.collection"
-						:item="item"
-						:template="`{{${header.value}}}`"
-					/>
-				</template>
-
-				<template #item-append="{ item }">
-					<router-link
-						v-if="enableLink"
-						v-tooltip="t('navigate_to_item')"
-						:to="getLinkForItem(item)"
-						class="item-link"
-						:class="{ disabled: item.$type === 'created' }"
-					>
-						<v-icon name="launch" />
-					</router-link>
-
-					<v-icon
-						v-if="!disabled && updateAllowed"
-						v-tooltip="t(getDeselectTooltip(item))"
-						class="deselect"
-						:name="getDeselectIcon(item)"
-						@click.stop="deleteItem(item)"
-					/>
-				</template>
-			</v-table>
-
-			<template v-else-if="loading">
-				<v-skeleton-loader
-					v-for="n in clamp(totalItemCount - (page - 1) * limit, 1, limit)"
-					:key="n"
-					:type="totalItemCount > 4 ? 'block-list-item-dense' : 'block-list-item'"
-				/>
-			</template>
-
-			<v-notice v-else-if="displayItems.length === 0">
-				{{ t('no_items') }}
-			</v-notice>
-
-			<v-list v-else>
-				<draggable
-					:force-fallback="true"
-					:model-value="displayItems"
-					item-key="id"
-					handle=".drag-handle"
-					:disabled="!allowDrag"
-					@update:model-value="sortItems($event)"
-				>
-					<template #item="{ element }">
-						<v-list-item
-							block
-							clickable
-							:dense="totalItemCount > 4"
-							:class="{ deleted: element.$type === 'deleted' }"
-							@click="editItem(element)"
-						>
-							<v-icon v-if="allowDrag" name="drag_handle" class="drag-handle" left @click.stop="() => {}" />
-							<render-template
-								:collection="relationInfo.relatedCollection.collection"
-								:item="element"
-								:template="templateWithDefaults"
-							/>
-							<div class="spacer" />
-
-							<router-link
-								v-if="enableLink"
-								v-tooltip="t('navigate_to_item')"
-								:to="getLinkForItem(element)"
-								class="item-link"
-								:class="{ disabled: element.$type === 'created' }"
-								@click.stop
-							>
-								<v-icon name="launch" />
-							</router-link>
-							<v-icon
-								v-if="!disabled && updateAllowed"
-								v-tooltip="t(getDeselectTooltip(element))"
-								class="deselect"
-								:name="getDeselectIcon(element)"
-								@click.stop="deleteItem(element)"
-							/>
-						</v-list-item>
-					</template>
-				</draggable>
-			</v-list>
-
-			<div class="actions" :class="layout">
-				<template v-if="layout === LAYOUTS.TABLE">
-					<template v-if="pageCount > 1">
-						<v-pagination v-model="page" :length="pageCount" :total-visible="width.includes('half') ? 3 : 5" />
-
-						<div class="spacer" />
-
-						<div v-if="loading === false" class="per-page">
-							<span>{{ t('per_page') }}</span>
-							<v-select v-model="limit" :items="['10', '20', '30', '50', '100']" inline />
-						</div>
-					</template>
-				</template>
-				<template v-else>
-					<v-button v-if="enableCreate && createAllowed && updateAllowed" :disabled="disabled" @click="createItem">
-						{{ t('create_new') }}
-					</v-button>
-					<v-button v-if="enableSelect && updateAllowed" :disabled="disabled" @click="selectModalActive = true">
-						{{ t('add_existing') }}
-					</v-button>
-					<div class="spacer" />
-					<v-pagination v-if="pageCount > 1" v-model="page" :length="pageCount" :total-visible="5" />
-				</template>
-			</div>
-		</div>
-
-		<drawer-item
-			:disabled="disabled"
-			:active="currentlyEditing !== null"
-			:collection="relationInfo.relatedCollection.collection"
-			:primary-key="currentlyEditing || '+'"
-			:edits="editsAtStart"
-			:circular-field="relationInfo.reverseJunctionField.field"
-			@input="stageEdits"
-			@update:active="cancelEdit"
-		/>
-
-		<drawer-collection
-			v-if="!disabled"
-			v-model:active="selectModalActive"
-			:collection="relationInfo.relatedCollection.collection"
-			:filter="customFilter"
-			multiple
-			@input="select"
-		/>
-	</div>
-</template>
-
 <script setup lang="ts">
+import { Sort } from '@/components/v-table/types';
+import { DisplayItem, RelationQueryMultiple, useRelationMultiple } from '@/composables/use-relation-multiple';
 import { useRelationO2M } from '@/composables/use-relation-o2m';
-import { useRelationMultiple, RelationQueryMultiple, DisplayItem } from '@/composables/use-relation-multiple';
+import { useRelationPermissionsO2M } from '@/composables/use-relation-permissions';
+import { useFieldsStore } from '@/stores/fields';
+import { LAYOUTS } from '@/types/interfaces';
+import { addRelatedPrimaryKeyToFields } from '@/utils/add-related-primary-key-to-fields';
+import { adjustFieldsForDisplays } from '@/utils/adjust-fields-for-displays';
+import { formatCollectionItemsCount } from '@/utils/format-collection-items-count';
+import { getItemRoute } from '@/utils/get-route';
 import { parseFilter } from '@/utils/parse-filter';
+import DrawerCollection from '@/views/private/components/drawer-collection.vue';
+import DrawerItem from '@/views/private/components/drawer-item.vue';
+import SearchInput from '@/views/private/components/search-input.vue';
 import { Filter } from '@directus/types';
 import { deepMap, getFieldsFromTemplate } from '@directus/utils';
+import { clamp, get, isEmpty, isNil } from 'lodash';
 import { render } from 'micromustache';
 import { computed, inject, ref, toRefs, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import SearchInput from '@/views/private/components/search-input.vue';
-import DrawerItem from '@/views/private/components/drawer-item.vue';
-import DrawerCollection from '@/views/private/components/drawer-collection.vue';
-import { Sort } from '@/components/v-table/types';
 import Draggable from 'vuedraggable';
-import { adjustFieldsForDisplays } from '@/utils/adjust-fields-for-displays';
-import { isEmpty, clamp, get, isNil } from 'lodash';
-import { usePermissionsStore } from '@/stores/permissions';
-import { useUserStore } from '@/stores/user';
-import { useFieldsStore } from '@/stores/fields';
-import { LAYOUTS } from '@/types/interfaces';
-import { formatCollectionItemsCount } from '@/utils/format-collection-items-count';
-import { addRelatedPrimaryKeyToFields } from '@/utils/add-related-primary-key-to-fields';
 
 const props = withDefaults(
 	defineProps<{
@@ -337,9 +140,11 @@ const {
 	loading,
 	selected,
 	isItemSelected,
-	localDelete,
+	isLocalItem,
 	getItemEdits,
 } = useRelationMultiple(value, query, relationInfo, primaryKey);
+
+const { createAllowed, deleteAllowed, updateAllowed } = useRelationPermissionsO2M(relationInfo);
 
 const pageCount = computed(() => Math.ceil(totalItemCount.value / limit.value));
 
@@ -411,13 +216,13 @@ const allowDrag = computed(
 
 function getDeselectIcon(item: DisplayItem) {
 	if (item.$type === 'deleted') return 'settings_backup_restore';
-	if (localDelete(item)) return 'delete';
+	if (isLocalItem(item)) return 'delete';
 	return 'close';
 }
 
 function getDeselectTooltip(item: DisplayItem) {
 	if (item.$type === 'deleted') return 'undo_removed_item';
-	if (localDelete(item)) return 'delete_item';
+	if (isLocalItem(item)) return 'delete_item';
 	return 'remove_item';
 }
 
@@ -560,35 +365,211 @@ const customFilter = computed(() => {
 function getLinkForItem(item: DisplayItem) {
 	if (relationInfo.value) {
 		const primaryKey = get(item, relationInfo.value.relatedPrimaryKeyField.field);
-		return `/content/${relationInfo.value.relatedCollection.collection}/${encodeURIComponent(primaryKey)}`;
+
+		return getItemRoute(relationInfo.value.relatedCollection.collection, primaryKey);
 	}
 
 	return null;
 }
-
-const userStore = useUserStore();
-const permissionsStore = usePermissionsStore();
-
-const createAllowed = computed(() => {
-	const admin = userStore.currentUser?.role.admin_access === true;
-	if (admin) return true;
-
-	return !!permissionsStore.permissions.find(
-		(permission) =>
-			permission.action === 'create' && permission.collection === relationInfo.value?.relatedCollection.collection
-	);
-});
-
-const updateAllowed = computed(() => {
-	const admin = userStore.currentUser?.role.admin_access === true;
-	if (admin) return true;
-
-	return !!permissionsStore.permissions.find(
-		(permission) =>
-			permission.action === 'update' && permission.collection === relationInfo.value?.relatedCollection.collection
-	);
-});
 </script>
+
+<template>
+	<v-notice v-if="!relationInfo" type="warning">
+		{{ t('relationship_not_setup') }}
+	</v-notice>
+	<v-notice v-else-if="relationInfo.relatedCollection.meta?.singleton" type="warning">
+		{{ t('no_singleton_relations') }}
+	</v-notice>
+	<div v-else class="one-to-many">
+		<div :class="{ bordered: layout === LAYOUTS.TABLE }">
+			<div v-if="layout === LAYOUTS.TABLE" class="actions" :class="width">
+				<div class="spacer" />
+
+				<div v-if="totalItemCount" class="item-count">
+					{{ showingCount }}
+				</div>
+
+				<div v-if="enableSearchFilter && (totalItemCount > 10 || search || searchFilter)" class="search">
+					<search-input
+						v-model="search"
+						v-model:filter="searchFilter"
+						:collection="relationInfo.relatedCollection.collection"
+					/>
+				</div>
+
+				<v-button
+					v-if="!disabled && enableSelect && updateAllowed"
+					v-tooltip.bottom="updateAllowed ? t('add_existing') : t('not_allowed')"
+					rounded
+					icon
+					:secondary="enableCreate"
+					@click="selectModalActive = true"
+				>
+					<v-icon name="playlist_add" />
+				</v-button>
+
+				<v-button
+					v-if="!disabled && enableCreate && createAllowed"
+					v-tooltip.bottom="createAllowed ? t('create_item') : t('not_allowed')"
+					rounded
+					icon
+					@click="createItem"
+				>
+					<v-icon name="add" />
+				</v-button>
+			</div>
+
+			<v-table
+				v-if="layout === LAYOUTS.TABLE"
+				v-model:sort="sort"
+				v-model:headers="headers"
+				:class="{ 'no-last-border': totalItemCount <= 10 }"
+				:loading="loading"
+				:show-manual-sort="allowDrag"
+				:manual-sort-key="relationInfo?.sortField"
+				:items="displayItems"
+				:row-height="tableRowHeight"
+				show-resize
+				@click:row="editRow"
+				@update:items="sortItems"
+			>
+				<template v-for="header in headers" :key="header.value" #[`item.${header.value}`]="{ item }">
+					<render-template
+						:title="header.value"
+						:collection="relationInfo.relatedCollection.collection"
+						:item="item"
+						:template="`{{${header.value}}}`"
+					/>
+				</template>
+
+				<template #item-append="{ item }">
+					<router-link
+						v-if="enableLink"
+						v-tooltip="t('navigate_to_item')"
+						:to="getLinkForItem(item)!"
+						class="item-link"
+						:class="{ disabled: item.$type === 'created' }"
+					>
+						<v-icon name="launch" />
+					</router-link>
+
+					<v-icon
+						v-if="!disabled && (deleteAllowed || isLocalItem(item))"
+						v-tooltip="t(getDeselectTooltip(item))"
+						class="deselect"
+						:name="getDeselectIcon(item)"
+						@click.stop="deleteItem(item)"
+					/>
+				</template>
+			</v-table>
+
+			<template v-else-if="loading">
+				<v-skeleton-loader
+					v-for="n in clamp(totalItemCount - (page - 1) * limit, 1, limit)"
+					:key="n"
+					:type="totalItemCount > 4 ? 'block-list-item-dense' : 'block-list-item'"
+				/>
+			</template>
+
+			<v-notice v-else-if="displayItems.length === 0">
+				{{ t('no_items') }}
+			</v-notice>
+
+			<v-list v-else>
+				<draggable
+					:force-fallback="true"
+					:model-value="displayItems"
+					item-key="id"
+					handle=".drag-handle"
+					:disabled="!allowDrag"
+					@update:model-value="sortItems($event)"
+				>
+					<template #item="{ element }">
+						<v-list-item
+							block
+							clickable
+							:disabled="disabled"
+							:dense="totalItemCount > 4"
+							:class="{ deleted: element.$type === 'deleted' }"
+							@click="editItem(element)"
+						>
+							<v-icon v-if="allowDrag" name="drag_handle" class="drag-handle" left @click.stop="() => {}" />
+							<render-template
+								:collection="relationInfo.relatedCollection.collection"
+								:item="element"
+								:template="templateWithDefaults"
+							/>
+							<div class="spacer" />
+
+							<router-link
+								v-if="enableLink"
+								v-tooltip="t('navigate_to_item')"
+								:to="getLinkForItem(element)!"
+								class="item-link"
+								:class="{ disabled: element.$type === 'created' }"
+								@click.stop
+							>
+								<v-icon name="launch" />
+							</router-link>
+							<v-icon
+								v-if="!disabled && (deleteAllowed || isLocalItem(element))"
+								v-tooltip="t(getDeselectTooltip(element))"
+								class="deselect"
+								:name="getDeselectIcon(element)"
+								@click.stop="deleteItem(element)"
+							/>
+						</v-list-item>
+					</template>
+				</draggable>
+			</v-list>
+
+			<div class="actions" :class="layout">
+				<template v-if="layout === LAYOUTS.TABLE">
+					<template v-if="pageCount > 1">
+						<v-pagination v-model="page" :length="pageCount" :total-visible="width.includes('half') ? 3 : 5" />
+
+						<div class="spacer" />
+
+						<div v-if="loading === false" class="per-page">
+							<span>{{ t('per_page') }}</span>
+							<v-select v-model="limit" :items="['10', '20', '30', '50', '100']" inline />
+						</div>
+					</template>
+				</template>
+				<template v-else>
+					<v-button v-if="enableCreate && createAllowed" :disabled="disabled" @click="createItem">
+						{{ t('create_new') }}
+					</v-button>
+					<v-button v-if="enableSelect && updateAllowed" :disabled="disabled" @click="selectModalActive = true">
+						{{ t('add_existing') }}
+					</v-button>
+					<div class="spacer" />
+					<v-pagination v-if="pageCount > 1" v-model="page" :length="pageCount" :total-visible="5" />
+				</template>
+			</div>
+		</div>
+
+		<drawer-item
+			:disabled="disabled || (!updateAllowed && currentlyEditing !== '+')"
+			:active="currentlyEditing !== null"
+			:collection="relationInfo.relatedCollection.collection"
+			:primary-key="currentlyEditing || '+'"
+			:edits="editsAtStart"
+			:circular-field="relationInfo.reverseJunctionField.field"
+			@input="stageEdits"
+			@update:active="cancelEdit"
+		/>
+
+		<drawer-collection
+			v-if="!disabled"
+			v-model:active="selectModalActive"
+			:collection="relationInfo.relatedCollection.collection"
+			:filter="customFilter"
+			multiple
+			@input="select"
+		/>
+	</div>
+</template>
 
 <style lang="scss">
 .one-to-many {

@@ -1,3 +1,70 @@
+<script setup lang="ts">
+import { useCollectionsStore } from '@/stores/collections';
+import { useFieldsStore } from '@/stores/fields';
+import { useRelationsStore } from '@/stores/relations';
+import { Collection } from '@/types/collections';
+import { getCollectionRoute } from '@/utils/get-route';
+import type { DeepPartial } from '@directus/types';
+import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
+
+type Props = {
+	collection: Collection;
+	hasNestedCollections: boolean;
+};
+
+const props = withDefaults(defineProps<Props>(), {});
+
+const { t } = useI18n();
+
+const collectionsStore = useCollectionsStore();
+const fieldsStore = useFieldsStore();
+const relationsStore = useRelationsStore();
+const { deleting, deleteActive, deleteCollection } = useDelete();
+
+const peerDependencies = computed(() => {
+	return relationsStore.relations
+		.filter((relation) => {
+			// a2o relations are ignored on purpose, to be able to select other collections afterwards
+			return (
+				relation.meta?.one_collection === props.collection.collection &&
+				relation.meta?.many_collection &&
+				relation.meta?.many_field
+			);
+		})
+		.map((relation) => ({
+			collection: relation.meta?.many_collection,
+			field: relation.meta?.many_field,
+		}));
+});
+
+function useDelete() {
+	const deleting = ref(false);
+	const deleteActive = ref(false);
+
+	return { deleting, deleteActive, deleteCollection };
+
+	async function deleteCollection() {
+		deleting.value = true;
+
+		try {
+			for (const dependency of peerDependencies.value) {
+				await fieldsStore.deleteField(dependency.collection!, dependency.field!);
+			}
+
+			await collectionsStore.deleteCollection(props.collection.collection);
+			deleteActive.value = false;
+		} finally {
+			deleting.value = false;
+		}
+	}
+}
+
+async function update(updates: DeepPartial<Collection>) {
+	await collectionsStore.updateCollection(props.collection.collection, updates);
+}
+</script>
+
 <template>
 	<div v-if="collection.collection.startsWith('directus_') === false">
 		<v-menu placement="left-start" show-arrow>
@@ -5,7 +72,7 @@
 				<v-icon name="more_vert" clickable class="ctx-toggle" @click.prevent="toggle" />
 			</template>
 			<v-list>
-				<v-list-item v-if="collection.schema" clickable :to="`/content/${collection.collection}`">
+				<v-list-item v-if="collection.schema" clickable :to="getCollectionRoute(collection.collection)">
 					<v-list-item-icon>
 						<v-icon name="box" />
 					</v-list-item-icon>
@@ -28,6 +95,51 @@
 						</v-list-item-content>
 					</template>
 				</v-list-item>
+
+				<template v-if="collection.type === 'alias' || hasNestedCollections">
+					<v-divider />
+
+					<v-list-item
+						:active="collection.meta?.collapse === 'open'"
+						clickable
+						@click="update({ meta: { collapse: 'open' } })"
+					>
+						<v-list-item-icon>
+							<v-icon name="folder_open" />
+						</v-list-item-icon>
+						<v-list-item-content>
+							{{ t('start_open') }}
+						</v-list-item-content>
+					</v-list-item>
+
+					<v-list-item
+						:active="collection.meta?.collapse === 'closed'"
+						clickable
+						@click="update({ meta: { collapse: 'closed' } })"
+					>
+						<v-list-item-icon>
+							<v-icon name="folder" />
+						</v-list-item-icon>
+						<v-list-item-content>
+							{{ t('start_collapsed') }}
+						</v-list-item-content>
+					</v-list-item>
+
+					<v-list-item
+						:active="collection.meta?.collapse === 'locked'"
+						clickable
+						@click="update({ meta: { collapse: 'locked' } })"
+					>
+						<v-list-item-icon>
+							<v-icon name="folder_lock" />
+						</v-list-item-icon>
+						<v-list-item-content>
+							{{ t('always_open') }}
+						</v-list-item-content>
+					</v-list-item>
+
+					<v-divider />
+				</template>
 
 				<v-list-item clickable class="danger" @click="deleteActive = true">
 					<v-list-item-icon>
@@ -73,70 +185,6 @@
 		</v-dialog>
 	</div>
 </template>
-
-<script setup lang="ts">
-import { useI18n } from 'vue-i18n';
-import { computed, ref } from 'vue';
-import { Collection } from '@/types/collections';
-import { useCollectionsStore } from '@/stores/collections';
-import { useRelationsStore } from '@/stores/relations';
-import { useFieldsStore } from '@/stores/fields';
-
-type Props = {
-	collection: Collection;
-};
-
-const props = withDefaults(defineProps<Props>(), {});
-
-const { t } = useI18n();
-
-const collectionsStore = useCollectionsStore();
-const fieldsStore = useFieldsStore();
-const relationsStore = useRelationsStore();
-const { deleting, deleteActive, deleteCollection } = useDelete();
-
-const peerDependencies = computed(() => {
-	return relationsStore.relations
-		.filter((relation) => {
-			// a2o relations are ignored on purpose, to be able to select other collections afterwards
-			return (
-				relation.meta?.one_collection === props.collection.collection &&
-				relation.meta?.many_collection &&
-				relation.meta?.many_field
-			);
-		})
-		.map((relation) => ({
-			collection: relation.meta?.many_collection,
-			field: relation.meta?.many_field,
-		}));
-});
-
-async function update(updates: Partial<Collection>) {
-	await collectionsStore.updateCollection(props.collection.collection, updates);
-}
-
-function useDelete() {
-	const deleting = ref(false);
-	const deleteActive = ref(false);
-
-	return { deleting, deleteActive, deleteCollection };
-
-	async function deleteCollection() {
-		deleting.value = true;
-
-		try {
-			for (const dependency of peerDependencies.value) {
-				await fieldsStore.deleteField(dependency.collection!, dependency.field!);
-			}
-
-			await collectionsStore.deleteCollection(props.collection.collection);
-			deleteActive.value = false;
-		} finally {
-			deleting.value = false;
-		}
-	}
-}
-</script>
 
 <style lang="scss" scoped>
 .ctx-toggle {
