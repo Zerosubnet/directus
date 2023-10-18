@@ -59,4 +59,14 @@ export abstract class AuthDriver {
 	async logout(_user: User): Promise<void> {
 		return;
 	}
+
+	/**
+	 * Return the JWT secret if trusted else returns null
+	 *
+	 * @param _token JWT in string format
+	 * @returns secret as string or null
+	 */
+	async getJWTSecret(_token: string): Promise<string | undefined> {
+		return;
+	}
 }

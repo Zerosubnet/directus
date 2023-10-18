@@ -29,12 +29,14 @@ import { getIPFromReq } from '../../utils/get-ip-from-req.js';
 import { getMilliseconds } from '../../utils/get-milliseconds.js';
 import { Url } from '../../utils/url.js';
 import { LocalAuthDriver } from './local.js';
+import { JwksClient } from 'jwks-rsa';
 
 export class OAuth2AuthDriver extends LocalAuthDriver {
 	client: Client;
 	redirectUrl: string;
 	usersService: UsersService;
 	config: Record<string, any>;
+	secrets: Map<string, string> = new Map();
 
 	constructor(options: AuthDriverOptions, config: Record<string, any>) {
 		super(options, config);
@@ -55,6 +57,7 @@ export class OAuth2AuthDriver extends LocalAuthDriver {
 			authorization_endpoint: authorizeUrl,
 			token_endpoint: accessUrl,
 			userinfo_endpoint: profileUrl,
+			jwks_uri: additionalConfig['jwks_uri'],
 			issuer: additionalConfig['provider'],
 		});
 
@@ -95,6 +98,42 @@ export class OAuth2AuthDriver extends LocalAuthDriver {
 		} catch (e) {
 			throw handleError(e);
 		}
+	}
+
+	override async getJWTSecret(_token: string): Promise<string | undefined> {
+		// if trustExternalJWT
+		const payload = jwt.decode(_token, { json: true });
+		const kid = payload ? payload['kid'] : undefined;
+
+		if (kid && this.secrets.get(kid)) {
+			return this.secrets.get(kid);
+		}
+
+		if (this.client.issuer.metadata.jwks_uri) {
+			const _jwksClient = new JwksClient({
+				jwksUri: this.client.issuer.metadata.jwks_uri,
+			});
+
+			if (kid) {
+				const key = await _jwksClient.getSigningKey(kid);
+
+				if (key) {
+					this.secrets.set(kid, key.getPublicKey());
+					return key.getPublicKey();
+				}
+			}
+
+			if (!this.secrets.get('default')) {
+				const keys = await _jwksClient.getSigningKeys();
+				if (keys && keys.length > 0 && keys[0]) this.secrets.set('default', keys[0].getPublicKey());
+			}
+		}
+
+		if (kid) {
+			return this.secrets.get(kid);
+		}
+
+		return this.secrets.get('default');
 	}
 
 	private async fetchUserId(identifier: string): Promise<string | undefined> {

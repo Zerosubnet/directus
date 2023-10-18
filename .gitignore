@@ -1,8 +1,11 @@
 # User preferences
 .DS_Store
+.devcontainer
 
 # Dependencies
 node_modules
+.pnpm-store
+
 
 # Builds / Caches
 dist
