@@ -3,9 +3,8 @@ import type { NextFunction, Request, Response } from 'express';
 import { isEqual } from 'lodash-es';
 import getDatabase from '../database/index.js';
 import emitter from '../emitter.js';
-import env from '../env.js';
-import { InvalidCredentialsException } from '../exceptions/index.js';
 import asyncHandler from '../utils/async-handler.js';
+import { getAccountabilityForToken } from '../utils/get-accountability-for-token.js';
 import { getIPFromReq } from '../utils/get-ip-from-req.js';
 import getTrustedJWTSecret from '../utils/is-trusted-jwt.js';
 import { verifyAccessJWT } from '../utils/jwt.js';
@@ -85,6 +84,7 @@ export const handler = async (req: Request, _res: Response, next: NextFunction) 
 			req.accountability.app = user.app_access === true || user.app_access == 1;
 		}
 	}
+	req.accountability = await getAccountabilityForToken(req.token, defaultAccountability);
 
 	return next();
 };
